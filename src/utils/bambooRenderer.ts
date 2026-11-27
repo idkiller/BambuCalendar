@@ -400,13 +400,6 @@ export function drawIsoTile(
 
   if (tile.isActive && count > 0) {
     drawPlant(ctx, x, drawY - 1, count, time, tile.day * 1.7, 1);
-
-    ctx.save();
-    ctx.font = '700 11px "JetBrains Mono", monospace';
-    ctx.fillStyle = count >= 4 ? '#14532d' : '#0369a1';
-    ctx.textAlign = 'center';
-    ctx.fillText(String(count), x + 22, drawY - 10);
-    ctx.restore();
   }
 }
 
@@ -613,28 +606,53 @@ function drawPandaHead(
     ctx.arc(r * 0.085 + lookX, r * 0.38, r * 0.085, 0.05, Math.PI - 0.1);
     ctx.stroke();
   } else {
-    // Sad / crying expression (울상): droopy worried brows, teardrops, frown
+    // Sad / crying expression (울상): sad slanted brows, teary eye pools, clear animated teardrops, pout
     ctx.strokeStyle = INK;
-    ctx.lineWidth = Math.max(1.2, r * 0.085);
+    ctx.lineWidth = Math.max(1.4, r * 0.1);
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-r * 0.62 + lookX, -r * 0.34);
-    ctx.lineTo(-r * 0.26 + lookX, -r * 0.42);
-    ctx.moveTo(r * 0.62 + lookX, -r * 0.34);
-    ctx.lineTo(r * 0.26 + lookX, -r * 0.42);
+    ctx.moveTo(-r * 0.64 + lookX, -r * 0.34);
+    ctx.lineTo(-r * 0.26 + lookX, -r * 0.44);
+    ctx.moveTo(r * 0.64 + lookX, -r * 0.34);
+    ctx.lineTo(r * 0.26 + lookX, -r * 0.44);
     ctx.stroke();
 
-    const tearBob = Math.abs(Math.sin(time * 3.8 + seed)) * (r * 0.17);
+    // Welling blue tears along the lower edge of both eye patches
     ctx.fillStyle = '#38bdf8';
     ctx.beginPath();
-    ctx.ellipse(-r * 0.44 + lookX, r * 0.36 + tearBob, r * 0.085, r * 0.135, 0, 0, Math.PI * 2);
-    ctx.ellipse(r * 0.44 + lookX, r * 0.36 + tearBob, r * 0.085, r * 0.135, 0, 0, Math.PI * 2);
+    ctx.ellipse(-r * 0.42 + lookX, r * 0.26, r * 0.2, r * 0.09, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.42 + lookX, r * 0.26, r * 0.2, r * 0.09, 0.2, 0, Math.PI * 2);
     ctx.fill();
 
+    // Animated falling teardrops down each cheek
+    const tearPhase = (time * 1.9 + seed) % 1;
+    const tearY = r * 0.34 + tearPhase * (r * 0.34);
+    const tearR = Math.max(1.7, r * 0.145);
+
+    for (const side of [-1, 1]) {
+      const tx = side * r * 0.46 + lookX;
+      ctx.fillStyle = '#38bdf8';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = Math.max(0.8, r * 0.055);
+      ctx.beginPath();
+      ctx.moveTo(tx, tearY - tearR * 1.3);
+      ctx.quadraticCurveTo(tx + tearR * 1.15, tearY + tearR * 0.1, tx, tearY + tearR * 0.9);
+      ctx.quadraticCurveTo(tx - tearR * 1.15, tearY + tearR * 0.1, tx, tearY - tearR * 1.3);
+      ctx.fill();
+      ctx.stroke();
+
+      // Tiny white shine on droplet
+      ctx.fillStyle = '#e0f2fe';
+      ctx.beginPath();
+      ctx.arc(tx - tearR * 0.25, tearY + tearR * 0.1, Math.max(0.6, tearR * 0.28), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Sad frown mouth
     ctx.strokeStyle = INK;
-    ctx.lineWidth = Math.max(1.3, r * 0.095);
+    ctx.lineWidth = Math.max(1.4, r * 0.1);
     ctx.beginPath();
-    ctx.arc(lookX, r * 0.54, r * 0.14, Math.PI * 1.18, Math.PI * 1.82);
+    ctx.arc(lookX, r * 0.54, r * 0.16, Math.PI * 1.15, Math.PI * 1.85);
     ctx.stroke();
   }
 
@@ -724,7 +742,7 @@ export function drawPlayer(
 
 // ==========================================
 // Lounging Participant Pandas Beside Calendar
-// (6 strictly horizontal/relaxed poses, distinct from sitting watering panda)
+// (Balanced mix of lying, sitting, and belly-down poses, all distinct from watering panda)
 // ==========================================
 function drawSingleLoungingPanda(
   ctx: CanvasRenderingContext2D,
@@ -751,7 +769,7 @@ function drawSingleLoungingPanda(
   const pose = Math.abs(poseIndex) % 6;
 
   if (pose === 0) {
-    // Pose 0: Flat belly-down sploot (배 깔고 납작 엎드려 쉬기)
+    // Pose 0 (엎드려 있기): Flat belly-down sploot facing right
     drawPawFoot(ctx, -16, 0.5, 4.1, 4.8, -0.5);
     drawPawFoot(ctx, -14, -4, 3.8, 4.5, -0.35);
 
@@ -763,7 +781,6 @@ function drawSingleLoungingPanda(
     ctx.fill();
     ctx.stroke();
 
-    // Dark shoulder patch + stretched front arm
     ctx.fillStyle = INK;
     ctx.beginPath();
     ctx.ellipse(5.5, -4, 4.2, 5.2, 0.5, 0, Math.PI * 2);
@@ -772,29 +789,53 @@ function drawSingleLoungingPanda(
 
     drawPandaHead(ctx, 10.5, -13.5 + sway * 0.35, 11, happy, 0.35, time, seed, 0.07);
   } else if (pose === 1) {
-    // Pose 1: Side-lying lounge propped on elbow (옆으로 길게 누워 턱 괴기)
+    // Pose 1 (앉아있기): Sitting upright hugging a tall green bamboo stalk
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 1.9;
     ctx.beginPath();
-    ctx.ellipse(2, -3, 13.5, 7.5, -0.06, 0, Math.PI * 2);
+    ctx.ellipse(-3, -7.5, 10.2, 8.8, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Extended hind legs on the right
-    drawPawFoot(ctx, 14.5, -2.5, 4.1, 4.8, 0.4);
-    drawPawFoot(ctx, 12.5, 2.5, 3.9, 4.6, 0.25);
-
-    // Shoulder band + elbow propping head on the left
-    ctx.fillStyle = INK;
+    // Tall bamboo stalk beside the sitting panda
+    ctx.strokeStyle = '#15803d';
+    ctx.lineWidth = 4.2;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.ellipse(-5.5, -4.5, 4.3, 5.2, -0.45, 0, Math.PI * 2);
-    ctx.ellipse(-10, 1.5, 4.4, 2.6, -0.15, 0, Math.PI * 2);
+    ctx.moveTo(9, 2.5);
+    ctx.lineTo(13, -29);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(8, -11);
+    ctx.lineTo(13.5, -11);
+    ctx.moveTo(9.5, -21);
+    ctx.lineTo(14.5, -21);
+    ctx.stroke();
+
+    ctx.fillStyle = '#4ade80';
+    ctx.beginPath();
+    ctx.ellipse(17.5, -25, 5.2, 2, -0.45, 0, Math.PI * 2);
+    ctx.ellipse(18, -18, 4.4, 1.7, 0.25, 0, Math.PI * 2);
     ctx.fill();
 
-    drawPandaHead(ctx, -10.5, -14 + sway * 0.35, 11, happy, 0.2, time, seed, -0.12);
+    // Feet tucked forward on ground
+    drawPawFoot(ctx, -10.5, -1, 4.2, 4.9, -0.25);
+    drawPawFoot(ctx, 4.5, -1, 4.2, 4.9, 0.25);
+
+    // Both black arms hugging the bamboo stalk
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(2, -12.5, 6.2, 3.2, -0.15, 0, Math.PI * 2);
+    ctx.ellipse(5, -7.5, 5.2, 2.8, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawPandaHead(ctx, -2.5, -24 + sway * 0.35, 11.4, happy, 0.3, time, seed, 0.08);
   } else if (pose === 2) {
-    // Pose 2: Back-lying belly-up sprawl (하늘 보고 발라당 누워 뒹굴기)
+    // Pose 2 (누워있기): Back-lying belly-up sprawl
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.8;
@@ -803,7 +844,7 @@ function drawSingleLoungingPanda(
     ctx.fill();
     ctx.stroke();
 
-    // Legs kicked casually in the air on the right
+    // Legs kicked casually in the air
     drawPawFoot(ctx, 10.5, -9.5 + sway * 0.35, 4, 4.7, -0.25);
     drawPawFoot(ctx, 14, -2.5 + sway * 0.35, 4, 4.7, 0.25);
 
@@ -815,8 +856,7 @@ function drawSingleLoungingPanda(
 
     drawPandaHead(ctx, -10.5, -13.5, 11, happy, -0.15, time, seed, -0.16);
   } else if (pose === 3) {
-    // Pose 3: Opposite tummy sprawl with bamboo twig (반대쪽으로 엎어져 대나무 옆에 두고 쉬기)
-    // Bamboo sprig resting on grass
+    // Pose 3 (엎드려 있기): Tummy sprawl facing left with bamboo leaf & propped chin
     ctx.strokeStyle = '#16a34a';
     ctx.lineWidth = 2.6;
     ctx.lineCap = 'round';
@@ -829,7 +869,6 @@ function drawSingleLoungingPanda(
     ctx.ellipse(-16, -0.5, 4.2, 1.8, -0.45, 0, Math.PI * 2);
     ctx.fill();
 
-    // Hind paws kicked up behind to the right
     drawPawFoot(ctx, 15.5, -4 + sway * 0.4, 3.8, 4.5, 0.45);
     drawPawFoot(ctx, 14, 1, 4, 4.6, 0.25);
 
@@ -849,52 +888,61 @@ function drawSingleLoungingPanda(
 
     drawPandaHead(ctx, -9.5, -14 + sway * 0.35, 11, happy, -0.3, time, seed, -0.06);
   } else if (pose === 4) {
-    // Pose 4: Curled-up sideways loaf (옆으로 둥글게 말려 낮잠 자기)
-    drawPawFoot(ctx, 12.5, 0, 4, 4.6, 0.45);
+    // Pose 4 (앉아있기): Sitting casually leaning slightly back with legs stretched forward & waving paw
+    // Supporting arm leaning behind
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(-10.5, -4.5, 3.2, 5.4, 0.45, 0, Math.PI * 2);
+    ctx.fill();
 
+    // Sitting white torso
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 1.9;
     ctx.beginPath();
-    ctx.ellipse(1, -4.5, 12.5, 8.6, 0.08, 0, Math.PI * 2);
+    ctx.ellipse(-2.5, -7, 10.4, 8.6, -0.12, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Dark curved back band
+    // Dark shoulder band + cheerfully waving right paw
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(3.5, -9.5, 7.8, 3.6, 0.18, 0, Math.PI * 2);
-    ctx.ellipse(-6.5, -1, 4.2, 3.2, -0.3, 0, Math.PI * 2);
+    ctx.ellipse(-3, -12.5, 8.5, 3.2, -0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    drawPandaHead(ctx, -8.5, -12.5 + sway * 0.25, 10.8, happy, -0.1, time, seed, 0.14);
+    ctx.save();
+    ctx.translate(6.5, -11);
+    ctx.rotate(-0.65 + Math.sin(time * 4.8 + seed) * 0.35);
+    ctx.beginPath();
+    ctx.ellipse(0, -4.5, 3.3, 5.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Both legs stretched lazily forward to the right
+    drawPawFoot(ctx, 9.5, -3, 4.1, 4.8, 0.55);
+    drawPawFoot(ctx, 7.5, 2.5, 4.1, 4.8, 0.35);
+
+    drawPandaHead(ctx, -3.5, -24 + sway * 0.25, 11.4, happy, 0.2, time, seed, -0.09);
   } else {
-    // Pose 5: Reclined sprawl leaning back with legs stretched forward (뒤로 기대어 다리 쭉 뻗고 쉬기)
-    // Back-propping dark arms
-    ctx.fillStyle = INK;
-    ctx.beginPath();
-    ctx.ellipse(-11, -3, 3.5, 5.5, 0.45, 0, Math.PI * 2);
-    ctx.fill();
-
+    // Pose 5 (누워있기): Side-lying lounge propped on elbow
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.ellipse(-1, -4, 12.5, 7.8, -0.18, 0, Math.PI * 2);
+    ctx.ellipse(2, -3, 13.5, 7.5, -0.06, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Dark chest/arm drape
+    drawPawFoot(ctx, 14.5, -2.5, 4.1, 4.8, 0.4);
+    drawPawFoot(ctx, 12.5, 2.5, 3.9, 4.6, 0.25);
+
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(-3.5, -8, 6, 3.4, -0.25, 0, Math.PI * 2);
+    ctx.ellipse(-5.5, -4.5, 4.3, 5.2, -0.45, 0, Math.PI * 2);
+    ctx.ellipse(-10, 1.5, 4.4, 2.6, -0.15, 0, Math.PI * 2);
     ctx.fill();
 
-    // Stretched-out legs forward to the right
-    drawPawFoot(ctx, 12, -3.5, 4.1, 4.8, 0.55);
-    drawPawFoot(ctx, 10, 2.5, 4.1, 4.8, 0.35);
-
-    drawPandaHead(ctx, -9.5, -16 + sway * 0.3, 11, happy, 0.3, time, seed, -0.1);
+    drawPandaHead(ctx, -10.5, -14 + sway * 0.35, 11, happy, 0.2, time, seed, -0.12);
   }
 
   // Nickname banner above lounging panda
@@ -904,7 +952,7 @@ function drawSingleLoungingPanda(
   const textW = ctx.measureText(labelText).width;
   const pillW = textW + 14;
   const pillH = 20;
-  const labelY = -38;
+  const labelY = pose === 1 || pose === 4 ? -48 : -38;
 
   ctx.fillStyle = isMe ? 'rgba(220, 252, 231, 0.94)' : 'rgba(255, 255, 255, 0.92)';
   ctx.strokeStyle = isMe ? '#15803d' : 'rgba(20, 83, 45, 0.18)';

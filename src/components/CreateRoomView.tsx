@@ -134,7 +134,7 @@ export function CreateRoomView({
     try {
       const activeUser = user || (await ensureAnonymousAuth());
       const roomId = generateRoomId();
-      const storedNick = localStorage.getItem('bamboo_nickname')?.trim();
+      const storedNick = localStorage.getItem('bamboo_player_nickname')?.trim();
       const creatorName = (storedNick || '정원사')
         .trim()
         .slice(0, MAX_NICKNAME_LENGTH);

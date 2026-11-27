@@ -80,10 +80,10 @@ export function GameWorldView({
   const [participantsList, setParticipantsList] = useState<ParticipantRecord[]>([]);
   const [participantsLoaded, setParticipantsLoaded] = useState(false);
   const [nickname, setNickname] = useState<string>(
-    () => localStorage.getItem('bamboo_nickname')?.trim() || ''
+    () => localStorage.getItem('bamboo_player_nickname')?.trim() || ''
   );
   const [nicknameConfirmed, setNicknameConfirmed] = useState<boolean>(
-    () => Boolean(localStorage.getItem('bamboo_nickname')?.trim())
+    () => Boolean(localStorage.getItem('bamboo_player_nickname')?.trim())
   );
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [nicknameDraft, setNicknameDraft] = useState('');
@@ -293,11 +293,23 @@ export function GameWorldView({
     if (!room || !user || !participantsLoaded || !nicknameConfirmed || !nickname.trim()) {
       return;
     }
-    if (myParticipant) return;
 
     const cleanNick = nickname.trim().slice(0, MAX_NICKNAME_LENGTH);
-    const poseIndex = Math.floor(Math.random() * 6);
     const path = `rooms/${room.id}/participants/${user.uid}`;
+
+    if (myParticipant) {
+      if (myParticipant.nickname !== cleanNick) {
+        updateDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
+          nickname: cleanNick,
+          updatedAt: serverTimestamp(),
+        }).catch((err) => {
+          handleFirestoreError(err, OperationType.UPDATE, path);
+        });
+      }
+      return;
+    }
+
+    const poseIndex = Math.floor(Math.random() * 6);
     setDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
       roomId: room.id,
       userId: user.uid,
@@ -344,7 +356,7 @@ export function GameWorldView({
 
     if (!nicknameConfirmed) {
       setNicknameDraft(
-        (localStorage.getItem('bamboo_nickname') || user?.displayName || '').slice(
+        (localStorage.getItem('bamboo_player_nickname') || '').slice(
           0,
           MAX_NICKNAME_LENGTH
         )
@@ -889,7 +901,7 @@ export function GameWorldView({
     const clean = nicknameDraft.trim().slice(0, MAX_NICKNAME_LENGTH);
     if (!clean) return;
 
-    localStorage.setItem('bamboo_nickname', clean);
+    localStorage.setItem('bamboo_player_nickname', clean);
     setNickname(clean);
     setNicknameConfirmed(true);
     setShowNicknameModal(false);
@@ -1057,7 +1069,7 @@ export function GameWorldView({
           <button
             type="button"
             onClick={() => {
-              setNicknameDraft(nickname || user?.displayName || '');
+              setNicknameDraft(nickname || '');
               setShowNicknameModal(true);
             }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/92 backdrop-blur-md border border-emerald-950/10 text-xs font-semibold text-[#18231c] hover:bg-emerald-50 transition-colors shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
@@ -1248,6 +1260,8 @@ export function GameWorldView({
             <form onSubmit={handleSaveNickname} className="mt-4 space-y-4">
               <input
                 type="text"
+                name="panda-nickname"
+                autoComplete="off"
                 value={nicknameDraft}
                 onChange={(e) => setNicknameDraft(e.target.value)}
                 placeholder="예: 민수, 영희, 대나무왕"
