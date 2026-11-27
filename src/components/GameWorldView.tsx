@@ -105,6 +105,7 @@ export function GameWorldView({
   const voteCountByUserRef = useRef<Record<string, number>>({});
   const participantsRef = useRef<ParticipantRecord[]>([]);
   const myHasVotedRef = useRef<boolean>(false);
+  const canWaterRef = useRef<boolean>(true);
   const currentUserIdRef = useRef<string | null>(null);
   const hoveredTileIdxRef = useRef<number>(-1);
   const particlesRef = useRef<Particle[]>([]);
@@ -284,7 +285,8 @@ export function GameWorldView({
     voteCountByUserRef.current = voteCountByUser;
     participantsRef.current = participantsList;
     myHasVotedRef.current = myHasVoted;
-  }, [votesByDate, voteCountByUser, participantsList, myHasVoted]);
+    canWaterRef.current = canWater;
+  }, [votesByDate, voteCountByUser, participantsList, myHasVoted, canWater]);
 
   // Ensure current user with confirmed nickname has a lounging panda participant entry in this room
   useEffect(() => {
@@ -702,18 +704,21 @@ export function GameWorldView({
 
       drawMonthHeaders(ctx, monthIslands);
 
+      const canWaterNow = canWaterRef.current;
+
       drawLoungingPandas(
         ctx,
         participantsRef.current,
         voteCountByUserRef.current,
         monthIslands,
         time,
-        currentUserIdRef.current
+        currentUserIdRef.current,
+        !canWaterNow
       );
 
       const currentTile = activeTiles[p.tileIndex];
       const playerDepth = p.gx + p.gy;
-      let playerDrawn = false;
+      let playerDrawn = !canWaterNow;
 
       for (const tile of allTiles) {
         const tileDepth = tile.gx + tile.gy;

@@ -455,33 +455,66 @@ function drawPawFoot(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  r: number,
+  rx: number,
+  ry: number,
   rot = 0
 ) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rot);
 
-  // Outer black round foot
+  // Outer solid black oval foot
   ctx.fillStyle = INK;
   ctx.beginPath();
-  ctx.ellipse(0, 0, r, r * 0.92, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Inner white ring pad outline + main pad
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = Math.max(1, r * 0.14);
+  // Filled white main paw pad (matches reference illustration)
+  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.ellipse(0, r * 0.16, r * 0.44, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, ry * 0.2, rx * 0.48, ry * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Three tiny white toe dots above the main pad
+  const beanR = Math.max(0.85, rx * 0.13);
+  ctx.beginPath();
+  ctx.arc(-rx * 0.42, -ry * 0.34, beanR, 0, Math.PI * 2);
+  ctx.arc(0, -ry * 0.48, beanR, 0, Math.PI * 2);
+  ctx.arc(rx * 0.42, -ry * 0.34, beanR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawShoulderLeaves(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  dir: number
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+
+  ctx.strokeStyle = '#14532d';
+  ctx.lineWidth = 1.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, 2);
+  ctx.lineTo(7, -8);
   ctx.stroke();
 
-  // Three tiny white toe beans
-  ctx.fillStyle = '#ffffff';
-  const beanR = Math.max(0.9, r * 0.13);
+  ctx.fillStyle = '#15803d';
   ctx.beginPath();
-  ctx.arc(-r * 0.4, -r * 0.34, beanR, 0, Math.PI * 2);
-  ctx.arc(0, -r * 0.48, beanR, 0, Math.PI * 2);
-  ctx.arc(r * 0.4, -r * 0.34, beanR, 0, Math.PI * 2);
+  ctx.ellipse(6.5, -9, 3.6, 1.3, -0.75, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(8.5, -4.5, 3.5, 1.25, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(3.5, -5.5, 3.2, 1.2, -1.25, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -496,16 +529,16 @@ function drawPandaHead(
   facing: number,
   time: number,
   seed: number,
-  tilt = -0.06
+  tilt = -0.04
 ) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(tilt);
 
-  // Round black ears with white inner crescents
-  const earX = r * 0.78;
-  const earY = -r * 0.72;
-  const earR = r * 0.38;
+  // Solid round black ears (matches reference illustration)
+  const earX = r * 0.76;
+  const earY = -r * 0.68;
+  const earR = r * 0.34;
 
   ctx.fillStyle = INK;
   ctx.beginPath();
@@ -513,123 +546,97 @@ function drawPandaHead(
   ctx.arc(earX, earY, earR, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(-earX * 0.94, earY + earR * 0.08, earR * 0.48, 0, Math.PI * 2);
-  ctx.arc(earX * 0.94, earY + earR * 0.08, earR * 0.48, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Oversized chubby white head with bold crisp ink outline
+  // Clean round white head with bold ink outline
   ctx.fillStyle = '#ffffff';
   ctx.strokeStyle = INK;
-  ctx.lineWidth = Math.max(1.8, r * 0.14);
+  ctx.lineWidth = Math.max(1.8, r * 0.13);
   ctx.beginPath();
-  ctx.ellipse(0, 0, r * 1.14, r * 0.96, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, r * 1.12, r * 0.94, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  const lookX = facing * r * 0.1;
+  const lookX = facing * r * 0.08;
 
-  // Big tilted oval black eye patches
+  // Tilted solid dark oval eye patches
   ctx.fillStyle = INK;
   ctx.save();
   ctx.translate(-r * 0.42 + lookX, r * 0.02);
-  ctx.rotate(-0.32);
+  ctx.rotate(-0.34);
   ctx.beginPath();
-  ctx.ellipse(0, 0, r * 0.28, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, r * 0.27, r * 0.32, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
   ctx.save();
   ctx.translate(r * 0.42 + lookX, r * 0.02);
-  ctx.rotate(0.32);
+  ctx.rotate(0.34);
   ctx.beginPath();
-  ctx.ellipse(0, 0, r * 0.28, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, r * 0.27, r * 0.32, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  const eyeLX = -r * 0.39 + lookX;
-  const eyeRX = r * 0.39 + lookX;
-  const eyeY = -r * 0.01;
-  const eyeR = r * 0.17;
+  // Single crisp small white catchlight dot per eye (no large round ring!)
+  const dotR = Math.max(1.1, r * 0.085);
+  const dotLX = -r * 0.36 + lookX;
+  const dotRX = r * 0.36 + lookX;
+  const dotY = -r * 0.05;
 
-  // Glossy ringed eyes (matches reference illustration)
-  ctx.fillStyle = INK;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = Math.max(1.2, r * 0.09);
-
-  ctx.beginPath();
-  ctx.arc(eyeLX, eyeY, eyeR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(eyeRX, eyeY, eyeR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Bright catchlight dots
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.arc(eyeLX - eyeR * 0.34, eyeY - eyeR * 0.34, eyeR * 0.34, 0, Math.PI * 2);
-  ctx.arc(eyeRX - eyeR * 0.34, eyeY - eyeR * 0.34, eyeR * 0.34, 0, Math.PI * 2);
+  ctx.arc(dotLX, dotY, dotR, 0, Math.PI * 2);
+  ctx.arc(dotRX, dotY, dotR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cute rounded inverted-triangle nose
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.12 + lookX, r * 0.16);
+  ctx.quadraticCurveTo(lookX, r * 0.13, r * 0.12 + lookX, r * 0.16);
+  ctx.quadraticCurveTo(r * 0.11 + lookX, r * 0.26, lookX, r * 0.3);
+  ctx.quadraticCurveTo(-r * 0.11 + lookX, r * 0.26, -r * 0.12 + lookX, r * 0.16);
   ctx.fill();
 
   if (happy) {
-    // Tiny secondary sparkle + soft rosy cheeks + cute :3 mouth
-    ctx.beginPath();
-    ctx.arc(eyeLX + eyeR * 0.34, eyeY + eyeR * 0.34, eyeR * 0.16, 0, Math.PI * 2);
-    ctx.arc(eyeRX + eyeR * 0.34, eyeY + eyeR * 0.34, eyeR * 0.16, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
-    ctx.beginPath();
-    ctx.ellipse(-r * 0.65 + lookX, r * 0.32, r * 0.17, r * 0.09, 0, 0, Math.PI * 2);
-    ctx.ellipse(r * 0.65 + lookX, r * 0.32, r * 0.17, r * 0.09, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cute :3 mouth
+    // Short stem + sweet :3 / w smile (matches reference illustration)
     ctx.strokeStyle = INK;
-    ctx.lineWidth = Math.max(1.4, r * 0.1);
+    ctx.lineWidth = Math.max(1.3, r * 0.095);
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(-r * 0.09 + lookX, r * 0.34, r * 0.09, 0.15, Math.PI - 0.1);
+    ctx.moveTo(lookX, r * 0.28);
+    ctx.lineTo(lookX, r * 0.38);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(-r * 0.085 + lookX, r * 0.38, r * 0.085, 0.1, Math.PI - 0.05);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(r * 0.09 + lookX, r * 0.34, r * 0.09, 0.1, Math.PI - 0.15);
+    ctx.arc(r * 0.085 + lookX, r * 0.38, r * 0.085, 0.05, Math.PI - 0.1);
     ctx.stroke();
   } else {
-    // Sad/crying expression (울상): worried brows, glistening teardrops, inverted pout
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(1.1, r * 0.08);
+    // Sad / crying expression (울상): droopy worried brows, teardrops, frown
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1.2, r * 0.085);
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(eyeLX - eyeR * 1.1, eyeY - eyeR * 1.25);
-    ctx.lineTo(eyeLX + eyeR * 0.9, eyeY - eyeR * 0.9);
-    ctx.moveTo(eyeRX + eyeR * 1.1, eyeY - eyeR * 1.25);
-    ctx.lineTo(eyeRX - eyeR * 0.9, eyeY - eyeR * 0.9);
+    ctx.moveTo(-r * 0.62 + lookX, -r * 0.34);
+    ctx.lineTo(-r * 0.26 + lookX, -r * 0.42);
+    ctx.moveTo(r * 0.62 + lookX, -r * 0.34);
+    ctx.lineTo(r * 0.26 + lookX, -r * 0.42);
     ctx.stroke();
 
-    const tearBob = Math.abs(Math.sin(time * 3.8 + seed)) * (r * 0.18);
+    const tearBob = Math.abs(Math.sin(time * 3.8 + seed)) * (r * 0.17);
     ctx.fillStyle = '#38bdf8';
     ctx.beginPath();
-    ctx.ellipse(eyeLX - r * 0.04, eyeY + eyeR * 1.35 + tearBob, r * 0.09, r * 0.14, 0, 0, Math.PI * 2);
-    ctx.ellipse(eyeRX + r * 0.04, eyeY + eyeR * 1.35 + tearBob, r * 0.09, r * 0.14, 0, 0, Math.PI * 2);
+    ctx.ellipse(-r * 0.44 + lookX, r * 0.36 + tearBob, r * 0.085, r * 0.135, 0, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.44 + lookX, r * 0.36 + tearBob, r * 0.085, r * 0.135, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.strokeStyle = INK;
-    ctx.lineWidth = Math.max(1.4, r * 0.1);
-    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(1.3, r * 0.095);
     ctx.beginPath();
-    ctx.arc(lookX, r * 0.5, r * 0.15, Math.PI * 1.18, Math.PI * 1.82);
+    ctx.arc(lookX, r * 0.54, r * 0.14, Math.PI * 1.18, Math.PI * 1.82);
     ctx.stroke();
   }
-
-  // Cute oval nose
-  ctx.fillStyle = INK;
-  ctx.beginPath();
-  ctx.ellipse(lookX, r * 0.21, r * 0.14, r * 0.095, 0, 0, Math.PI * 2);
-  ctx.fill();
 
   ctx.restore();
 }
@@ -657,7 +664,7 @@ export function drawPlayer(
   ctx.save();
   ctx.translate(px, py);
 
-  const idleBob = player.jumpProgress >= 1 ? Math.sin(time * 4.2) * 1.4 : 0;
+  const idleBob = player.jumpProgress >= 1 ? Math.sin(time * 4.2) * 1.3 : 0;
   ctx.translate(0, idleBob);
 
   if (player.jumpProgress < 1) {
@@ -665,50 +672,59 @@ export function drawPlayer(
     ctx.scale(1 / Math.sqrt(stretch), stretch);
   }
 
-  // Compact white chubby body with bold ink outline
+  // Cute bamboo leaf sprigs peeking behind shoulders (matches reference)
+  drawShoulderLeaves(ctx, -9, -13, -1);
+  drawShoulderLeaves(ctx, 9, -13, 1);
+
+  // Chubby white belly with crisp ink outline
   ctx.fillStyle = '#ffffff';
   ctx.strokeStyle = INK;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.ellipse(0, -10, 10.5, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -10.5, 11.2, 9.5, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Inward-tucked curved black arms
+  // Black shoulder band & curved inward hugging arms (matches reference)
   ctx.fillStyle = INK;
   ctx.beginPath();
-  ctx.ellipse(-6.5, -10, 4.2, 6.8, -0.45, 0, Math.PI * 2);
-  ctx.ellipse(6.5, -10, 4.2, 6.8, 0.45, 0, Math.PI * 2);
+  ctx.ellipse(0, -16.5, 9.8, 3.8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Cute round hind feet with toe-bean paw pads
-  drawPawFoot(ctx, -9.5, -2.5, 5.2, -0.15);
-  drawPawFoot(ctx, 9.5, -2.5, 5.2, 0.15);
+  ctx.beginPath();
+  ctx.ellipse(-6.8, -12, 4.4, 6.2, -0.78, 0, Math.PI * 2);
+  ctx.ellipse(6.8, -12, 4.4, 6.2, 0.78, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Oval tilted feet with filled white pad & 3 toe dots
+  drawPawFoot(ctx, -9.8, -2.5, 4.6, 5.6, -0.35);
+  drawPawFoot(ctx, 9.8, -2.5, 4.6, 5.6, 0.35);
 
   // Tiny blue watering can beside paw
   ctx.fillStyle = '#0284c7';
   ctx.strokeStyle = INK;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.roundRect(player.facing * 12 - 3.5, -13, 7, 6, 1.5);
+  ctx.roundRect(player.facing * 12.5 - 3.5, -13, 7, 6, 1.5);
   ctx.fill();
   ctx.stroke();
   ctx.strokeStyle = '#0369a1';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(player.facing * 15, -11);
-  ctx.lineTo(player.facing * 18.5, -14.5);
+  ctx.moveTo(player.facing * 15.5, -11);
+  ctx.lineTo(player.facing * 19, -14.5);
   ctx.stroke();
 
-  // Oversized cute tilted panda head
-  const tilt = player.jumpProgress < 1 ? player.facing * 0.08 : -0.07;
-  drawPandaHead(ctx, 0, -28, 13.5, hasVoted, player.facing, time, 0, tilt);
+  // Oversized cute panda head
+  const tilt = player.jumpProgress < 1 ? player.facing * 0.08 : -0.03;
+  drawPandaHead(ctx, 0, -28.5, 13.5, hasVoted, player.facing, time, 0, tilt);
 
   ctx.restore();
 }
 
 // ==========================================
 // Lounging Participant Pandas Beside Calendar
+// (6 strictly horizontal/relaxed poses, distinct from sitting watering panda)
 // ==========================================
 function drawSingleLoungingPanda(
   ctx: CanvasRenderingContext2D,
@@ -725,154 +741,160 @@ function drawSingleLoungingPanda(
   ctx.save();
   ctx.translate(x, y);
 
-  // Soft mossy resting spot underneath each panda
+  // Soft mossy resting spot underneath each lounging panda
   ctx.fillStyle = isMe ? 'rgba(134, 239, 172, 0.55)' : 'rgba(187, 247, 208, 0.45)';
   ctx.beginPath();
-  ctx.ellipse(0, 4, 25, 11.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 4, 26, 11.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const sway = Math.sin(time * 2.2 + seed) * 1.2;
+  const sway = Math.sin(time * 2.2 + seed) * 1.1;
   const pose = Math.abs(poseIndex) % 6;
 
   if (pose === 0) {
-    // Pose 0: Belly sprawl (배 깔고 엎드리기)
-    drawPawFoot(ctx, -15, 0.5, 4.4, -0.35);
-    drawPawFoot(ctx, -13, -3.5, 4.2, -0.2);
+    // Pose 0: Flat belly-down sploot (배 깔고 납작 엎드려 쉬기)
+    drawPawFoot(ctx, -16, 0.5, 4.1, 4.8, -0.5);
+    drawPawFoot(ctx, -14, -4, 3.8, 4.5, -0.35);
 
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.ellipse(-2, -3, 13.5, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(-2, -3, 14, 7.6, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
+    // Dark shoulder patch + stretched front arm
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(5, -4, 4, 5.5, 0.45, 0, Math.PI * 2);
-    ctx.ellipse(12, 2, 4.5, 2.8, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(5.5, -4, 4.2, 5.2, 0.5, 0, Math.PI * 2);
+    ctx.ellipse(12.5, 2, 4.6, 2.7, 0.08, 0, Math.PI * 2);
     ctx.fill();
 
-    drawPandaHead(ctx, 10, -14 + sway * 0.4, 11.2, happy, 0.4, time, seed, 0.08);
+    drawPandaHead(ctx, 10.5, -13.5 + sway * 0.35, 11, happy, 0.35, time, seed, 0.07);
   } else if (pose === 1) {
-    // Pose 1: Classic Kawaii Sit (레퍼런스 일러스트 포즈 그대로!)
+    // Pose 1: Side-lying lounge propped on elbow (옆으로 길게 누워 턱 괴기)
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
-    ctx.lineWidth = 1.9;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.ellipse(0, -6.5, 10.5, 8.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(2, -3, 13.5, 7.5, -0.06, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Tucked inward black front arms
+    // Extended hind legs on the right
+    drawPawFoot(ctx, 14.5, -2.5, 4.1, 4.8, 0.4);
+    drawPawFoot(ctx, 12.5, 2.5, 3.9, 4.6, 0.25);
+
+    // Shoulder band + elbow propping head on the left
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(-5.5, -6.5, 3.8, 6.2, -0.42, 0, Math.PI * 2);
-    ctx.ellipse(5.5, -6.5, 3.8, 6.2, 0.42, 0, Math.PI * 2);
+    ctx.ellipse(-5.5, -4.5, 4.3, 5.2, -0.45, 0, Math.PI * 2);
+    ctx.ellipse(-10, 1.5, 4.4, 2.6, -0.15, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cute toe-bean feet forward
-    drawPawFoot(ctx, -9.5, -1, 4.8, -0.15);
-    drawPawFoot(ctx, 9.5, -1, 4.8, 0.15);
-
-    drawPandaHead(ctx, 0, -23 + sway * 0.4, 11.8, happy, 0, time, seed, -0.07);
+    drawPandaHead(ctx, -10.5, -14 + sway * 0.35, 11, happy, 0.2, time, seed, -0.12);
   } else if (pose === 2) {
-    // Pose 2: Side lounge propping head (옆으로 누워 턱 괴기)
+    // Pose 2: Back-lying belly-up sprawl (하늘 보고 발라당 누워 뒹굴기)
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.ellipse(2, -3, 13, 7.8, -0.08, 0, Math.PI * 2);
+    ctx.ellipse(0, -3.5, 14, 7.6, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    drawPawFoot(ctx, 14, -2, 4.4, 0.25);
-    drawPawFoot(ctx, 12, 3, 4.2, 0.15);
+    // Legs kicked casually in the air on the right
+    drawPawFoot(ctx, 10.5, -9.5 + sway * 0.35, 4, 4.7, -0.25);
+    drawPawFoot(ctx, 14, -2.5 + sway * 0.35, 4, 4.7, 0.25);
 
+    // Flopped arm resting on belly
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(-6, -5, 4.2, 5.2, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(-2.5, -9.5, 3.6, 4.6, 0.35, 0, Math.PI * 2);
     ctx.fill();
 
-    drawPandaHead(ctx, -10, -15 + sway * 0.4, 11.2, happy, 0.25, time, seed, -0.1);
+    drawPandaHead(ctx, -10.5, -13.5, 11, happy, -0.15, time, seed, -0.16);
   } else if (pose === 3) {
-    // Pose 3: Hugging a mini bamboo stalk (대나무 안고 쉬기)
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.ellipse(-2, -6.5, 10, 8.8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
+    // Pose 3: Opposite tummy sprawl with bamboo twig (반대쪽으로 엎어져 대나무 옆에 두고 쉬기)
+    // Bamboo sprig resting on grass
     ctx.strokeStyle = '#16a34a';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 2.6;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(9, 2);
-    ctx.lineTo(13, -25);
+    ctx.moveTo(-18, 3);
+    ctx.lineTo(-4, -3);
     ctx.stroke();
     ctx.fillStyle = '#4ade80';
     ctx.beginPath();
-    ctx.ellipse(16.5, -22, 5.5, 2.2, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(-16, -0.5, 4.2, 1.8, -0.45, 0, Math.PI * 2);
     ctx.fill();
 
-    drawPawFoot(ctx, -9.5, -1, 4.4, -0.15);
-    drawPawFoot(ctx, 5.5, -1, 4.4, 0.15);
+    // Hind paws kicked up behind to the right
+    drawPawFoot(ctx, 15.5, -4 + sway * 0.4, 3.8, 4.5, 0.45);
+    drawPawFoot(ctx, 14, 1, 4, 4.6, 0.25);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(2, -3, 13.5, 7.5, 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
 
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(6, -8, 5.5, 3, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(-5.5, -4.5, 4.2, 5, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(-12, 2, 4.2, 2.5, -0.15, 0, Math.PI * 2);
     ctx.fill();
 
-    drawPandaHead(ctx, -2, -22 + sway * 0.4, 11.2, happy, 0.25, time, seed, 0.06);
+    drawPandaHead(ctx, -9.5, -14 + sway * 0.35, 11, happy, -0.3, time, seed, -0.06);
   } else if (pose === 4) {
-    // Pose 4: Back sprawl with toe-bean paws up (발라당 누워 쉬기)
+    // Pose 4: Curled-up sideways loaf (옆으로 둥글게 말려 낮잠 자기)
+    drawPawFoot(ctx, 12.5, 0, 4, 4.6, 0.45);
+
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.ellipse(0, -3, 13.5, 7.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(1, -4.5, 12.5, 8.6, 0.08, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    drawPawFoot(ctx, 10, -8 + sway * 0.3, 4.2, -0.25);
-    drawPawFoot(ctx, 13, -2 + sway * 0.3, 4.2, 0.2);
-
+    // Dark curved back band
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(-2, -10, 3.5, 4.5, 0.2, 0, Math.PI * 2);
+    ctx.ellipse(3.5, -9.5, 7.8, 3.6, 0.18, 0, Math.PI * 2);
+    ctx.ellipse(-6.5, -1, 4.2, 3.2, -0.3, 0, Math.PI * 2);
     ctx.fill();
 
-    drawPandaHead(ctx, -10, -14, 11.2, happy, -0.15, time, seed, -0.12);
+    drawPandaHead(ctx, -8.5, -12.5 + sway * 0.25, 10.8, happy, -0.1, time, seed, 0.14);
   } else {
-    // Pose 5: Sitting & waving paw cheerfully (앉아서 손 흔들기)
+    // Pose 5: Reclined sprawl leaning back with legs stretched forward (뒤로 기대어 다리 쭉 뻗고 쉬기)
+    // Back-propping dark arms
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(-11, -3, 3.5, 5.5, 0.45, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.ellipse(0, -6.5, 10, 8.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(-1, -4, 12.5, 7.8, -0.18, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
+    // Dark chest/arm drape
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.ellipse(-5.5, -6.5, 3.6, 5.8, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(-3.5, -8, 6, 3.4, -0.25, 0, Math.PI * 2);
     ctx.fill();
 
-    // Waving right paw
-    ctx.save();
-    ctx.translate(9, -10);
-    ctx.rotate(-0.65 + Math.sin(time * 5 + seed) * 0.35);
-    ctx.beginPath();
-    ctx.ellipse(0, -4.5, 3.5, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    // Stretched-out legs forward to the right
+    drawPawFoot(ctx, 12, -3.5, 4.1, 4.8, 0.55);
+    drawPawFoot(ctx, 10, 2.5, 4.1, 4.8, 0.35);
 
-    drawPawFoot(ctx, -9, -1, 4.6, -0.15);
-    drawPawFoot(ctx, 9, -1, 4.6, 0.15);
-
-    drawPandaHead(ctx, 0, -23, 11.5, happy, 0.15, time, seed, 0.06);
+    drawPandaHead(ctx, -9.5, -16 + sway * 0.3, 11, happy, 0.3, time, seed, -0.1);
   }
 
   // Nickname banner above lounging panda
@@ -882,7 +904,7 @@ function drawSingleLoungingPanda(
   const textW = ctx.measureText(labelText).width;
   const pillW = textW + 14;
   const pillH = 20;
-  const labelY = pose === 0 || pose === 2 || pose === 4 ? -38 : -46;
+  const labelY = -38;
 
   ctx.fillStyle = isMe ? 'rgba(220, 252, 231, 0.94)' : 'rgba(255, 255, 255, 0.92)';
   ctx.strokeStyle = isMe ? '#15803d' : 'rgba(20, 83, 45, 0.18)';
@@ -907,15 +929,22 @@ export function drawLoungingPandas(
   voteCountByUser: Record<string, number>,
   monthIslands: MonthIsland[],
   time: number,
-  currentUserId: string | null
+  currentUserId: string | null,
+  includeCurrentUser = false
 ) {
-  if (participants.length === 0 || monthIslands.length === 0) return;
+  if (monthIslands.length === 0) return;
+
+  const visibleParticipants = includeCurrentUser
+    ? participants
+    : participants.filter((p) => p.userId !== currentUserId);
+
+  if (visibleParticipants.length === 0) return;
 
   const firstIsland = monthIslands[0];
   const baseOffset = firstIsland.offset;
 
   // Arrange lounging pandas neatly on the left meadow beside the first calendar island
-  participants.forEach((p, idx) => {
+  visibleParticipants.forEach((p, idx) => {
     const colLane = Math.floor(idx / 4);
     const rowSlot = idx % 4;
     const gx = baseOffset - 1.9 - colLane * 1.85;
