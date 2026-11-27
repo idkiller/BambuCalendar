@@ -744,17 +744,28 @@ export function drawPlayer(
 // Lounging Participant Pandas Beside Calendar
 // (Balanced mix of lying, sitting, and belly-down poses, all distinct from watering panda)
 // ==========================================
+export interface PandaRemoveButtonHit {
+  userId: string;
+  nickname: string;
+  wx: number;
+  wy: number;
+  radius: number;
+}
+
 function drawSingleLoungingPanda(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   poseIndex: number,
   happy: boolean,
+  userId: string,
   nickname: string,
   isMe: boolean,
   isDone: boolean,
   time: number,
-  seed: number
+  seed: number,
+  showRemoveButton = false,
+  removeHitsOut?: PandaRemoveButtonHit[]
 ) {
   ctx.save();
   ctx.translate(x, y);
@@ -950,7 +961,7 @@ function drawSingleLoungingPanda(
   ctx.save();
   ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
   const textW = ctx.measureText(labelText).width;
-  const pillW = textW + 14;
+  const pillW = showRemoveButton ? textW + 30 : textW + 14;
   const pillH = 20;
   const labelY = pose === 1 || pose === 4 ? -48 : -38;
 
@@ -965,7 +976,39 @@ function drawSingleLoungingPanda(
   ctx.fillStyle = isMe ? '#14532d' : '#1e293b';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(labelText, 0, labelY + 0.5);
+  ctx.fillText(labelText, showRemoveButton ? -8 : 0, labelY + 0.5);
+
+  if (showRemoveButton) {
+    const btnX = pillW / 2 - 10;
+    const btnY = labelY;
+    ctx.fillStyle = '#ffe4e6';
+    ctx.strokeStyle = '#fda4af';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(btnX, btnY, 6.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = '#be123c';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(btnX - 2.3, btnY - 2.3);
+    ctx.lineTo(btnX + 2.3, btnY + 2.3);
+    ctx.moveTo(btnX + 2.3, btnY - 2.3);
+    ctx.lineTo(btnX - 2.3, btnY + 2.3);
+    ctx.stroke();
+
+    if (removeHitsOut) {
+      removeHitsOut.push({
+        userId,
+        nickname,
+        wx: x + btnX,
+        wy: y + btnY,
+        radius: 11,
+      });
+    }
+  }
   ctx.restore();
 
   ctx.restore();
@@ -978,8 +1021,13 @@ export function drawLoungingPandas(
   monthIslands: MonthIsland[],
   time: number,
   currentUserId: string | null,
-  includeCurrentUser = false
+  includeCurrentUser = false,
+  isRoomCreator = false,
+  removeHitsOut?: PandaRemoveButtonHit[]
 ) {
+  if (removeHitsOut) {
+    removeHitsOut.length = 0;
+  }
   if (monthIslands.length === 0) return;
 
   const visibleParticipants = includeCurrentUser
@@ -1001,6 +1049,7 @@ export function drawLoungingPandas(
 
     const voteCount = voteCountByUser[p.userId] || 0;
     const happy = voteCount > 0;
+    const isMe = p.userId === currentUserId;
 
     drawSingleLoungingPanda(
       ctx,
@@ -1008,11 +1057,14 @@ export function drawLoungingPandas(
       pos.y,
       p.poseIndex,
       happy,
+      p.userId,
       p.nickname,
-      p.userId === currentUserId,
+      isMe,
       p.isDone,
       time,
-      idx * 1.9
+      idx * 1.9,
+      isRoomCreator && !isMe,
+      removeHitsOut
     );
   });
 }

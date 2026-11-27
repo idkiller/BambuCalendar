@@ -112,9 +112,11 @@ service cloud.firestore {
         allow delete: if isSignedIn()
           && isValidId(roomId)
           && isValidId(voteId)
-          && existing().userId == request.auth.uid
           && exists(/databases/$(database)/documents/rooms/$(roomId))
-          && isParticipantUnlocked(roomId);
+          && (
+            (existing().userId == request.auth.uid && isParticipantUnlocked(roomId))
+            || get(/databases/$(database)/documents/rooms/$(roomId)).data.creatorId == request.auth.uid
+          );
       }
 
       match /participants/{participantId} {
@@ -145,8 +147,11 @@ service cloud.firestore {
         allow delete: if isSignedIn()
           && isValidId(roomId)
           && isValidId(participantId)
-          && existing().userId == request.auth.uid
-          && exists(/databases/$(database)/documents/rooms/$(roomId));
+          && exists(/databases/$(database)/documents/rooms/$(roomId))
+          && (
+            existing().userId == request.auth.uid
+            || get(/databases/$(database)/documents/rooms/$(roomId)).data.creatorId == request.auth.uid
+          );
       }
     }
   }

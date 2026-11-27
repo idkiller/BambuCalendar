@@ -18,6 +18,7 @@ import {
   Copy,
   Crosshair,
   Droplets,
+  LogOut,
   Minus,
   Plus,
   RotateCcw,
@@ -50,6 +51,7 @@ import {
   drawPlayer,
   getGrowthStageLabel,
   gridToScreen,
+  PandaRemoveButtonHit,
   TILE_H,
   TILE_W,
 } from '../utils/bambooRenderer';
@@ -92,6 +94,15 @@ export function GameWorldView({
   const [muted, setMuted] = useState(false);
   const [wateringBusy, setWateringBusy] = useState(false);
   const [doneBusy, setDoneBusy] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{
+    userId: string;
+    nickname: string;
+  } | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+  const [hoveredRemoveBtn, setHoveredRemoveBtn] = useState(false);
+  const [autoJoinPaused, setAutoJoinPaused] = useState(false);
 
   // Canvas & Animation Refs
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -106,6 +117,10 @@ export function GameWorldView({
   const participantsRef = useRef<ParticipantRecord[]>([]);
   const myHasVotedRef = useRef<boolean>(false);
   const canWaterRef = useRef<boolean>(true);
+  const isRoomCreatorRef = useRef<boolean>(false);
+  const pandaRemoveHitsRef = useRef<PandaRemoveButtonHit[]>([]);
+  const hadParticipantRef = useRef<boolean>(false);
+  const isLeavingRef = useRef<boolean>(false);
   const currentUserIdRef = useRef<string | null>(null);
   const hoveredTileIdxRef = useRef<number>(-1);
   const particlesRef = useRef<Particle[]>([]);
@@ -278,6 +293,7 @@ export function GameWorldView({
 
   const isDone = Boolean(myParticipant?.isDone);
   const canWater = !isDeadlinePassed && !isDone;
+  const isRoomCreator = Boolean(room && user && room.creatorId === user.uid);
   const myHasVoted = Boolean(user && (voteCountByUser[user.uid] || 0) > 0);
 
   useEffect(() => {
@@ -286,11 +302,33 @@ export function GameWorldView({
     participantsRef.current = participantsList;
     myHasVotedRef.current = myHasVoted;
     canWaterRef.current = canWater;
-  }, [votesByDate, voteCountByUser, participantsList, myHasVoted, canWater]);
+    isRoomCreatorRef.current = isRoomCreator;
+  }, [votesByDate, voteCountByUser, participantsList, myHasVoted, canWater, isRoomCreator]);
+
+  // Detect if creator removed current user so we don't immediately re-auto-join in the background
+  useEffect(() => {
+    if (!participantsLoaded) return;
+    if (myParticipant) {
+      hadParticipantRef.current = true;
+      setAutoJoinPaused(false);
+    } else if (hadParticipantRef.current && !isLeavingRef.current) {
+      hadParticipantRef.current = false;
+      setAutoJoinPaused(true);
+      onShowToast('방장에 의해 참여 목록에서 제거되었습니다. 다시 물을 주면 재참여됩니다.');
+    }
+  }, [participantsLoaded, myParticipant, onShowToast]);
 
   // Ensure current user with confirmed nickname has a lounging panda participant entry in this room
   useEffect(() => {
-    if (!room || !user || !participantsLoaded || !nicknameConfirmed || !nickname.trim()) {
+    if (
+      !room ||
+      !user ||
+      !participantsLoaded ||
+      !nicknameConfirmed ||
+      !nickname.trim() ||
+      autoJoinPaused ||
+      isLeavingRef.current
+    ) {
       return;
     }
 
@@ -321,7 +359,15 @@ export function GameWorldView({
     }).catch((err) => {
       handleFirestoreError(err, OperationType.CREATE, path);
     });
-  }, [room, user, participantsLoaded, nicknameConfirmed, nickname, myParticipant]);
+  }, [
+    room,
+    user,
+    participantsLoaded,
+    nicknameConfirmed,
+    nickname,
+    myParticipant,
+    autoJoinPaused,
+  ]);
 
   const calendarWorld = useMemo(() => {
     if (!room) {
@@ -510,6 +556,24 @@ export function GameWorldView({
         soundFx.playCancel();
         onShowToast(`${tile.day}일 물주기를 취소했습니다.`);
       } else {
+        // Ensure participant record is restored if user was previously removed and is re-voting
+        if (!myParticipant) {
+          setAutoJoinPaused(false);
+          const partPath = `rooms/${room.id}/participants/${user.uid}`;
+          try {
+            await setDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
+              roomId: room.id,
+              userId: user.uid,
+              nickname: cleanNick,
+              poseIndex: Math.floor(Math.random() * 6),
+              isDone: false,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.CREATE, partPath);
+          }
+        }
         try {
           await setDoc(doc(db, 'rooms', room.id, 'votes', voteId), {
             roomId: room.id,
@@ -542,6 +606,7 @@ export function GameWorldView({
     wateringBusy,
     isDeadlinePassed,
     isDone,
+    myParticipant,
     nicknameConfirmed,
     nickname,
     spawnWaterParticles,
@@ -611,7 +676,16 @@ export function GameWorldView({
   // Keyboard Controls
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!room || !user || showNicknameModal || showSummary) return;
+      if (
+        !room ||
+        !user ||
+        showNicknameModal ||
+        showSummary ||
+        removeTarget ||
+        showLeaveModal
+      ) {
+        return;
+      }
       if (
         document.activeElement &&
         ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)
@@ -731,7 +805,9 @@ export function GameWorldView({
         monthIslands,
         time,
         currentUserIdRef.current,
-        !canWaterNow
+        !canWaterNow,
+        isRoomCreatorRef.current,
+        pandaRemoveHitsRef.current
       );
 
       const currentTile = activeTiles[p.tileIndex];
@@ -819,6 +895,21 @@ export function GameWorldView({
     return bestTile;
   };
 
+  const findRemoveHitAtScreenPos = (
+    clientX: number,
+    clientY: number
+  ): PandaRemoveButtonHit | null => {
+    if (!isRoomCreatorRef.current) return null;
+    const { wx, wy } = screenToWorld(clientX, clientY);
+    const radiusPad = 1 / Math.min(1, cameraRef.current.zoom);
+    for (const hit of pandaRemoveHitsRef.current) {
+      if (Math.hypot(wx - hit.wx, wy - hit.wy) <= hit.radius * radiusPad) {
+        return hit;
+      }
+    }
+    return null;
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const cam = cameraRef.current;
     cam.isDragging = true;
@@ -845,7 +936,9 @@ export function GameWorldView({
       cam.lastMouseX = e.clientX;
       cam.lastMouseY = e.clientY;
     } else {
-      const hovered = findTileAtScreenPos(e.clientX, e.clientY);
+      const removeHit = findRemoveHitAtScreenPos(e.clientX, e.clientY);
+      setHoveredRemoveBtn(Boolean(removeHit));
+      const hovered = removeHit ? null : findTileAtScreenPos(e.clientX, e.clientY);
       hoveredTileIdxRef.current = hovered ? hovered.activeIdx : -1;
     }
   };
@@ -856,6 +949,15 @@ export function GameWorldView({
     cam.isDragging = false;
 
     if (!cam.dragMoved) {
+      const removeHit = findRemoveHitAtScreenPos(e.clientX, e.clientY);
+      if (removeHit) {
+        setRemoveTarget({
+          userId: removeHit.userId,
+          nickname: removeHit.nickname,
+        });
+        return;
+      }
+
       const clicked = findTileAtScreenPos(e.clientX, e.clientY);
       if (clicked) {
         const p = playerRef.current;
@@ -975,6 +1077,68 @@ export function GameWorldView({
     setMuted(!muted);
   };
 
+  const handleConfirmRemoveParticipant = async () => {
+    if (!room || !user || !isRoomCreator || !removeTarget || removeBusy) return;
+    const target = removeTarget;
+    setRemoveBusy(true);
+    try {
+      const targetVotes = votesList.filter((v) => v.userId === target.userId);
+      const batch = writeBatch(db);
+      for (const v of targetVotes) {
+        batch.delete(doc(db, 'rooms', room.id, 'votes', v.id));
+      }
+      batch.delete(doc(db, 'rooms', room.id, 'participants', target.userId));
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `rooms/${room.id}/participants/${target.userId}`);
+      }
+      setRemoveTarget(null);
+      onShowToast(`'${target.nickname}'님과 투표 기록(${targetVotes.length}건)을 제거했습니다.`);
+    } finally {
+      setRemoveBusy(false);
+    }
+  };
+
+  const handleConfirmLeaveRoom = async () => {
+    if (!room || !user || leaveBusy) return;
+    setLeaveBusy(true);
+    isLeavingRef.current = true;
+    try {
+      // Delete participant doc first so isParticipantUnlocked becomes true even if isDone was true
+      if (myParticipant) {
+        const partPath = `rooms/${room.id}/participants/${user.uid}`;
+        try {
+          await deleteDoc(doc(db, 'rooms', room.id, 'participants', user.uid));
+        } catch (err) {
+          handleFirestoreError(err, OperationType.DELETE, partPath);
+        }
+      }
+
+      const myVotes = votesList.filter((v) => v.userId === user.uid);
+      if (myVotes.length > 0) {
+        const batch = writeBatch(db);
+        for (const v of myVotes) {
+          batch.delete(doc(db, 'rooms', room.id, 'votes', v.id));
+        }
+        try {
+          await batch.commit();
+        } catch (err) {
+          handleFirestoreError(err, OperationType.DELETE, `rooms/${room.id}/votes`);
+        }
+      }
+
+      setShowLeaveModal(false);
+      onShowToast('이 달력 방에서 내 데이터를 모두 삭제하고 나왔습니다.');
+      onBackHome();
+    } catch (err) {
+      isLeavingRef.current = false;
+      throw err;
+    } finally {
+      setLeaveBusy(false);
+    }
+  };
+
   // Top 7 Rankings calculation
   const topSevenRankings: DateRankingItem[] = useMemo(() => {
     if (!room) return [];
@@ -1040,7 +1204,9 @@ export function GameWorldView({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
-        className="block w-full h-full cursor-grab active:cursor-grabbing touch-none"
+        className={`block w-full h-full touch-none ${
+          hoveredRemoveBtn ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+        }`}
       />
 
       {/* Top HUD */}
@@ -1148,6 +1314,19 @@ export function GameWorldView({
           title={muted ? '효과음 켜기' : '효과음 끄기'}
         >
           {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* Bottom-left Corner Leave / Delete My Data ("탈출") Button */}
+      <div className="fixed left-3 bottom-36 md:bottom-4 z-10">
+        <button
+          type="button"
+          onClick={() => setShowLeaveModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/92 backdrop-blur-md border border-rose-200/80 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition-colors shadow-sm whitespace-nowrap cursor-pointer"
+          title="내 판다와 투표를 삭제하고 방 나가기"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>탈출</span>
         </button>
       </div>
 
@@ -1293,6 +1472,83 @@ export function GameWorldView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Creator Remove Participant Confirmation Modal */}
+      {removeTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label="참여자 제거 확인"
+        >
+          <div className="max-w-sm w-full bg-white rounded-2xl border border-emerald-950/10 p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-[#18231c]">
+              참여자 제거
+            </h2>
+            <p className="mt-2 text-sm text-[#4b5b50] leading-relaxed">
+              <strong className="font-semibold text-[#18231c]">
+                {removeTarget.nickname}
+              </strong>{' '}
+              판다를 달력에서 제거할까요? 이 참여자가 지금까지 준 물(투표)도 모두 함께 삭제되며, 나중에 다시 들어와 재투표할 수 있습니다.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={removeBusy}
+                onClick={() => setRemoveTarget(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-[#4b5b50] hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={removeBusy}
+                onClick={handleConfirmRemoveParticipant}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs sm:text-sm font-semibold hover:bg-rose-700 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {removeBusy ? '제거 중...' : '제거 및 투표 삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Self Leave & Delete Data ("탈출") Confirmation Modal */}
+      {showLeaveModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label="달력 탈출 확인"
+        >
+          <div className="max-w-sm w-full bg-white rounded-2xl border border-emerald-950/10 p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-[#18231c]">
+              이 달력에서 탈출할까요?
+            </h2>
+            <p className="mt-2 text-sm text-[#4b5b50] leading-relaxed">
+              탈출하면 이 방에서 내가 준 물(투표)과 내 판다 데이터가 모두 삭제되고 첫 화면으로 나갑니다.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={leaveBusy}
+                onClick={() => setShowLeaveModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-[#4b5b50] hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={leaveBusy}
+                onClick={handleConfirmLeaveRoom}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs sm:text-sm font-semibold hover:bg-rose-700 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {leaveBusy ? '삭제 중...' : '내 데이터 삭제하고 탈출'}
+              </button>
+            </div>
           </div>
         </div>
       )}
