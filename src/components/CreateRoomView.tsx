@@ -51,9 +51,16 @@ export function CreateRoomView({
     today.getDate() + 21
   );
 
+  const oneWeekLater = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() + 7
+  );
+
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState(formatDate(today));
   const [endDate, setEndDate] = useState(formatDate(threeWeeksLater));
+  const [voteDeadline, setVoteDeadline] = useState(formatDate(oneWeekLater));
   const [formError, setFormError] = useState('');
   const [creating, setCreating] = useState(false);
   const [myRooms, setMyRooms] = useState<RoomData[]>([]);
@@ -81,6 +88,7 @@ export function CreateRoomView({
             title: String(data.title || ''),
             startDate: String(data.startDate || ''),
             endDate: String(data.endDate || ''),
+            voteDeadline: data.voteDeadline ? String(data.voteDeadline) : undefined,
             creatorId: String(data.creatorId || ''),
             creatorName: String(data.creatorName || ''),
             createdAt: data.createdAt,
@@ -108,8 +116,8 @@ export function CreateRoomView({
       setFormError('모임 또는 이벤트 제목을 입력해 주세요.');
       return;
     }
-    if (!startDate || !endDate) {
-      setFormError('시작 날짜와 종료 날짜를 모두 선택해 주세요.');
+    if (!startDate || !endDate || !voteDeadline) {
+      setFormError('시작 날짜, 종료 날짜, 투표 종료일을 모두 선택해 주세요.');
       return;
     }
     if (startDate > endDate) {
@@ -137,6 +145,7 @@ export function CreateRoomView({
           title: cleanTitle,
           startDate,
           endDate,
+          voteDeadline,
           creatorId: activeUser.uid,
           creatorName,
           createdAt: serverTimestamp(),
@@ -325,6 +334,23 @@ export function CreateRoomView({
                   </div>
                 </div>
 
+                <div>
+                  <label
+                    htmlFor="vote-deadline"
+                    className="block text-xs font-semibold text-[#334155] mb-1.5"
+                  >
+                    투표 종료일 (이후에는 구경만 가능)
+                  </label>
+                  <input
+                    id="vote-deadline"
+                    type="date"
+                    value={voteDeadline}
+                    onChange={(e) => setVoteDeadline(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-sm font-mono tabular-nums text-[#18231c] focus:outline-none focus:border-[#15803d] focus:ring-2 focus:ring-[#15803d]/15"
+                  />
+                </div>
+
                 {formError && (
                   <p className="text-xs font-medium text-rose-600" role="alert">
                     {formError}
@@ -431,6 +457,11 @@ export function CreateRoomView({
                         {room.startDate} ~ {room.endDate}
                       </span>
                     </div>
+                    {room.voteDeadline && (
+                      <div className="mt-1 text-[11px] text-[#64748b] font-mono tabular-nums">
+                        투표 마감: {room.voteDeadline}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">

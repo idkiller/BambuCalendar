@@ -1,6 +1,7 @@
 import {
   CalendarTile,
   MonthIsland,
+  ParticipantRecord,
   PlayerState,
   VoteRecord,
 } from '../types/calendar';
@@ -154,7 +155,6 @@ export function drawPlant(
   ctx.translate(x, y);
   ctx.scale(scale, scale);
 
-  // Soft ground shadow under shoot/bamboo
   ctx.fillStyle = 'rgba(15, 23, 42, 0.16)';
   ctx.beginPath();
   ctx.ellipse(
@@ -171,7 +171,6 @@ export function drawPlant(
   const sway = Math.sin(time * 2.2 + seed) * 0.04;
 
   if (count <= 3) {
-    // Stage 1-3: Bamboo Shoot (죽순) growing progressively plumper & taller
     const heights = [0, 19, 30, 41];
     const widths = [0, 11, 16, 21];
     const h = heights[count];
@@ -179,7 +178,6 @@ export function drawPlant(
 
     ctx.rotate(sway * 0.55);
 
-    // Inner tender shoot
     ctx.fillStyle = count === 3 ? '#84cc16' : '#a3e635';
     ctx.beginPath();
     ctx.moveTo(0, -h - 4);
@@ -188,7 +186,6 @@ export function drawPlant(
     ctx.quadraticCurveTo(-w * 0.45, -h * 0.3, 0, -h - 4);
     ctx.fill();
 
-    // Overlapping brown husk sheaths
     ctx.fillStyle = '#92400e';
     ctx.beginPath();
     ctx.moveTo(-w * 0.52, 0);
@@ -205,7 +202,6 @@ export function drawPlant(
     ctx.closePath();
     ctx.fill();
 
-    // Small sprout tips from stage 2+
     if (count >= 2) {
       ctx.fillStyle = '#4d7c0f';
       ctx.beginPath();
@@ -219,7 +215,6 @@ export function drawPlant(
       ctx.fill();
     }
   } else {
-    // Stage 4+: Full Bamboo (대나무) growing taller with every vote
     const level = count - 3;
     const segments = Math.min(2 + level, 12);
     const segHeight = 14;
@@ -244,7 +239,6 @@ export function drawPlant(
       ctx.closePath();
       ctx.fill();
 
-      // Specular culm highlight
       ctx.fillStyle = 'rgba(255, 255, 255, 0.24)';
       ctx.beginPath();
       ctx.moveTo(curX - wBottom * 0.35, curY);
@@ -254,7 +248,6 @@ export function drawPlant(
       ctx.closePath();
       ctx.fill();
 
-      // Node ring
       ctx.strokeStyle = '#14532d';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -274,13 +267,11 @@ export function drawPlant(
       curY = nextY;
     }
 
-    // Top crown shoot
     ctx.fillStyle = '#4ade80';
     ctx.beginPath();
     ctx.ellipse(curX, curY - 6, 2.5, 7.5, sway * 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Subtle golden firefly accent for high-count bamboo (7+)
     if (count >= 7) {
       const sparkleY = curY * 0.65 + Math.sin(time * 3.8 + seed) * 5;
       ctx.fillStyle = '#facc15';
@@ -338,7 +329,6 @@ export function drawIsoTile(
     rightColor = '#4ade80';
   }
 
-  // Left side bevel
   ctx.fillStyle = leftColor;
   ctx.beginPath();
   ctx.moveTo(x - hw, drawY);
@@ -348,7 +338,6 @@ export function drawIsoTile(
   ctx.closePath();
   ctx.fill();
 
-  // Right side bevel
   ctx.fillStyle = rightColor;
   ctx.beginPath();
   ctx.moveTo(x + hw, drawY);
@@ -358,7 +347,6 @@ export function drawIsoTile(
   ctx.closePath();
   ctx.fill();
 
-  // Top face
   ctx.fillStyle = topColor;
   ctx.beginPath();
   ctx.moveTo(x, drawY - hh);
@@ -368,7 +356,6 @@ export function drawIsoTile(
   ctx.closePath();
   ctx.fill();
 
-  // Crisp edge outline
   ctx.strokeStyle = isCurrentPlayerTile
     ? '#15803d'
     : isHovered
@@ -377,7 +364,6 @@ export function drawIsoTile(
   ctx.lineWidth = isCurrentPlayerTile ? 2.4 : 1;
   ctx.stroke();
 
-  // Central soil patch for active days
   if (tile.isActive) {
     ctx.fillStyle = count > 0 ? '#8d6e63' : '#cbb7ab';
     ctx.beginPath();
@@ -385,7 +371,6 @@ export function drawIsoTile(
     ctx.fill();
   }
 
-  // Day number label
   ctx.save();
   ctx.font = tile.isActive
     ? '700 12px "JetBrains Mono", monospace'
@@ -403,7 +388,6 @@ export function drawIsoTile(
   }
   ctx.fillText(String(tile.day), x - 17, drawY + 6);
 
-  // Small blue droplet marker when current user watered this tile
   if (tile.isActive && iWatered) {
     ctx.fillStyle = '#0284c7';
     ctx.beginPath();
@@ -414,7 +398,6 @@ export function drawIsoTile(
   }
   ctx.restore();
 
-  // Plant + numeric water count
   if (tile.isActive && count > 0) {
     drawPlant(ctx, x, drawY - 1, count, time, tile.day * 1.7, 1);
 
@@ -463,10 +446,202 @@ export function drawMonthHeaders(ctx: CanvasRenderingContext2D, monthIslands: Mo
   });
 }
 
+// ==========================================
+// Kawaii Chibi Panda Head (Happy vs Crying)
+// ==========================================
+const INK = '#0f172a';
+
+function drawPawFoot(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  rot = 0
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+
+  // Outer black round foot
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r, r * 0.92, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Inner white ring pad outline + main pad
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1, r * 0.14);
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.16, r * 0.44, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Three tiny white toe beans
+  ctx.fillStyle = '#ffffff';
+  const beanR = Math.max(0.9, r * 0.13);
+  ctx.beginPath();
+  ctx.arc(-r * 0.4, -r * 0.34, beanR, 0, Math.PI * 2);
+  ctx.arc(0, -r * 0.48, beanR, 0, Math.PI * 2);
+  ctx.arc(r * 0.4, -r * 0.34, beanR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawPandaHead(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  happy: boolean,
+  facing: number,
+  time: number,
+  seed: number,
+  tilt = -0.06
+) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tilt);
+
+  // Round black ears with white inner crescents
+  const earX = r * 0.78;
+  const earY = -r * 0.72;
+  const earR = r * 0.38;
+
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(-earX, earY, earR, 0, Math.PI * 2);
+  ctx.arc(earX, earY, earR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(-earX * 0.94, earY + earR * 0.08, earR * 0.48, 0, Math.PI * 2);
+  ctx.arc(earX * 0.94, earY + earR * 0.08, earR * 0.48, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Oversized chubby white head with bold crisp ink outline
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1.8, r * 0.14);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 1.14, r * 0.96, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  const lookX = facing * r * 0.1;
+
+  // Big tilted oval black eye patches
+  ctx.fillStyle = INK;
+  ctx.save();
+  ctx.translate(-r * 0.42 + lookX, r * 0.02);
+  ctx.rotate(-0.32);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.28, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(r * 0.42 + lookX, r * 0.02);
+  ctx.rotate(0.32);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.28, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const eyeLX = -r * 0.39 + lookX;
+  const eyeRX = r * 0.39 + lookX;
+  const eyeY = -r * 0.01;
+  const eyeR = r * 0.17;
+
+  // Glossy ringed eyes (matches reference illustration)
+  ctx.fillStyle = INK;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1.2, r * 0.09);
+
+  ctx.beginPath();
+  ctx.arc(eyeLX, eyeY, eyeR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(eyeRX, eyeY, eyeR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Bright catchlight dots
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(eyeLX - eyeR * 0.34, eyeY - eyeR * 0.34, eyeR * 0.34, 0, Math.PI * 2);
+  ctx.arc(eyeRX - eyeR * 0.34, eyeY - eyeR * 0.34, eyeR * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (happy) {
+    // Tiny secondary sparkle + soft rosy cheeks + cute :3 mouth
+    ctx.beginPath();
+    ctx.arc(eyeLX + eyeR * 0.34, eyeY + eyeR * 0.34, eyeR * 0.16, 0, Math.PI * 2);
+    ctx.arc(eyeRX + eyeR * 0.34, eyeY + eyeR * 0.34, eyeR * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.65 + lookX, r * 0.32, r * 0.17, r * 0.09, 0, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.65 + lookX, r * 0.32, r * 0.17, r * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cute :3 mouth
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1.4, r * 0.1);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(-r * 0.09 + lookX, r * 0.34, r * 0.09, 0.15, Math.PI - 0.1);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(r * 0.09 + lookX, r * 0.34, r * 0.09, 0.1, Math.PI - 0.15);
+    ctx.stroke();
+  } else {
+    // Sad/crying expression (울상): worried brows, glistening teardrops, inverted pout
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.1, r * 0.08);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(eyeLX - eyeR * 1.1, eyeY - eyeR * 1.25);
+    ctx.lineTo(eyeLX + eyeR * 0.9, eyeY - eyeR * 0.9);
+    ctx.moveTo(eyeRX + eyeR * 1.1, eyeY - eyeR * 1.25);
+    ctx.lineTo(eyeRX - eyeR * 0.9, eyeY - eyeR * 0.9);
+    ctx.stroke();
+
+    const tearBob = Math.abs(Math.sin(time * 3.8 + seed)) * (r * 0.18);
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.ellipse(eyeLX - r * 0.04, eyeY + eyeR * 1.35 + tearBob, r * 0.09, r * 0.14, 0, 0, Math.PI * 2);
+    ctx.ellipse(eyeRX + r * 0.04, eyeY + eyeR * 1.35 + tearBob, r * 0.09, r * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1.4, r * 0.1);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(lookX, r * 0.5, r * 0.15, Math.PI * 1.18, Math.PI * 1.82);
+    ctx.stroke();
+  }
+
+  // Cute oval nose
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.ellipse(lookX, r * 0.21, r * 0.14, r * 0.095, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ==========================================
+// Active Controllable Chibi Panda Player
+// ==========================================
 export function drawPlayer(
   ctx: CanvasRenderingContext2D,
   player: PlayerState,
-  time: number
+  time: number,
+  hasVoted = true
 ) {
   const pos = gridToScreen(player.gx, player.gy);
   const jumpArc = Math.sin(player.jumpProgress * Math.PI) * player.jumpHeight;
@@ -476,54 +651,291 @@ export function drawPlayer(
   const shadowScale = Math.max(0.4, 1 - jumpArc / 95);
   ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
   ctx.beginPath();
-  ctx.ellipse(pos.x, pos.y + 4, 13 * shadowScale, 6.5 * shadowScale, 0, 0, Math.PI * 2);
+  ctx.ellipse(pos.x, pos.y + 4, 15 * shadowScale, 7 * shadowScale, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.save();
   ctx.translate(px, py);
 
-  const idleBob = player.jumpProgress >= 1 ? Math.sin(time * 5) * 1.5 : 0;
+  const idleBob = player.jumpProgress >= 1 ? Math.sin(time * 4.2) * 1.4 : 0;
   ctx.translate(0, idleBob);
 
-  // Squash/stretch subtly during jump
   if (player.jumpProgress < 1) {
-    const stretch = 1 + Math.sin(player.jumpProgress * Math.PI) * 0.1;
+    const stretch = 1 + Math.sin(player.jumpProgress * Math.PI) * 0.12;
     ctx.scale(1 / Math.sqrt(stretch), stretch);
   }
 
-  // Gardener vest
-  ctx.fillStyle = '#15803d';
+  // Compact white chubby body with bold ink outline
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.roundRect(-9, -20, 18, 17, 7);
+  ctx.ellipse(0, -10, 10.5, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Inward-tucked curved black arms
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.ellipse(-6.5, -10, 4.2, 6.8, -0.45, 0, Math.PI * 2);
+  ctx.ellipse(6.5, -10, 4.2, 6.8, 0.45, 0, Math.PI * 2);
   ctx.fill();
 
-  // Head
-  ctx.fillStyle = '#fde68a';
-  ctx.beginPath();
-  ctx.arc(0, -27, 10, 0, Math.PI * 2);
-  ctx.fill();
+  // Cute round hind feet with toe-bean paw pads
+  drawPawFoot(ctx, -9.5, -2.5, 5.2, -0.15);
+  drawPawFoot(ctx, 9.5, -2.5, 5.2, 0.15);
 
-  // Eyes
-  ctx.fillStyle = '#1e293b';
-  const eyeOffset = player.facing * 2.5;
-  ctx.beginPath();
-  ctx.arc(-3 + eyeOffset, -27, 1.5, 0, Math.PI * 2);
-  ctx.arc(3 + eyeOffset, -27, 1.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Straw hat
-  ctx.fillStyle = '#d97706';
-  ctx.beginPath();
-  ctx.ellipse(0, -34, 14, 4.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#f59e0b';
-  ctx.beginPath();
-  ctx.arc(0, -35, 8, Math.PI, 0);
-  ctx.fill();
-
-  // Little blue watering can
+  // Tiny blue watering can beside paw
   ctx.fillStyle = '#0284c7';
-  ctx.fillRect(player.facing * 9 - 3, -15, 7, 6);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.roundRect(player.facing * 12 - 3.5, -13, 7, 6, 1.5);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = '#0369a1';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(player.facing * 15, -11);
+  ctx.lineTo(player.facing * 18.5, -14.5);
+  ctx.stroke();
+
+  // Oversized cute tilted panda head
+  const tilt = player.jumpProgress < 1 ? player.facing * 0.08 : -0.07;
+  drawPandaHead(ctx, 0, -28, 13.5, hasVoted, player.facing, time, 0, tilt);
 
   ctx.restore();
+}
+
+// ==========================================
+// Lounging Participant Pandas Beside Calendar
+// ==========================================
+function drawSingleLoungingPanda(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  poseIndex: number,
+  happy: boolean,
+  nickname: string,
+  isMe: boolean,
+  isDone: boolean,
+  time: number,
+  seed: number
+) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Soft mossy resting spot underneath each panda
+  ctx.fillStyle = isMe ? 'rgba(134, 239, 172, 0.55)' : 'rgba(187, 247, 208, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, 4, 25, 11.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const sway = Math.sin(time * 2.2 + seed) * 1.2;
+  const pose = Math.abs(poseIndex) % 6;
+
+  if (pose === 0) {
+    // Pose 0: Belly sprawl (배 깔고 엎드리기)
+    drawPawFoot(ctx, -15, 0.5, 4.4, -0.35);
+    drawPawFoot(ctx, -13, -3.5, 4.2, -0.2);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(-2, -3, 13.5, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(5, -4, 4, 5.5, 0.45, 0, Math.PI * 2);
+    ctx.ellipse(12, 2, 4.5, 2.8, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawPandaHead(ctx, 10, -14 + sway * 0.4, 11.2, happy, 0.4, time, seed, 0.08);
+  } else if (pose === 1) {
+    // Pose 1: Classic Kawaii Sit (레퍼런스 일러스트 포즈 그대로!)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.9;
+    ctx.beginPath();
+    ctx.ellipse(0, -6.5, 10.5, 8.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Tucked inward black front arms
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(-5.5, -6.5, 3.8, 6.2, -0.42, 0, Math.PI * 2);
+    ctx.ellipse(5.5, -6.5, 3.8, 6.2, 0.42, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cute toe-bean feet forward
+    drawPawFoot(ctx, -9.5, -1, 4.8, -0.15);
+    drawPawFoot(ctx, 9.5, -1, 4.8, 0.15);
+
+    drawPandaHead(ctx, 0, -23 + sway * 0.4, 11.8, happy, 0, time, seed, -0.07);
+  } else if (pose === 2) {
+    // Pose 2: Side lounge propping head (옆으로 누워 턱 괴기)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(2, -3, 13, 7.8, -0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    drawPawFoot(ctx, 14, -2, 4.4, 0.25);
+    drawPawFoot(ctx, 12, 3, 4.2, 0.15);
+
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(-6, -5, 4.2, 5.2, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawPandaHead(ctx, -10, -15 + sway * 0.4, 11.2, happy, 0.25, time, seed, -0.1);
+  } else if (pose === 3) {
+    // Pose 3: Hugging a mini bamboo stalk (대나무 안고 쉬기)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(-2, -6.5, 10, 8.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = '#16a34a';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(9, 2);
+    ctx.lineTo(13, -25);
+    ctx.stroke();
+    ctx.fillStyle = '#4ade80';
+    ctx.beginPath();
+    ctx.ellipse(16.5, -22, 5.5, 2.2, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawPawFoot(ctx, -9.5, -1, 4.4, -0.15);
+    drawPawFoot(ctx, 5.5, -1, 4.4, 0.15);
+
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(6, -8, 5.5, 3, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawPandaHead(ctx, -2, -22 + sway * 0.4, 11.2, happy, 0.25, time, seed, 0.06);
+  } else if (pose === 4) {
+    // Pose 4: Back sprawl with toe-bean paws up (발라당 누워 쉬기)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(0, -3, 13.5, 7.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    drawPawFoot(ctx, 10, -8 + sway * 0.3, 4.2, -0.25);
+    drawPawFoot(ctx, 13, -2 + sway * 0.3, 4.2, 0.2);
+
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(-2, -10, 3.5, 4.5, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawPandaHead(ctx, -10, -14, 11.2, happy, -0.15, time, seed, -0.12);
+  } else {
+    // Pose 5: Sitting & waving paw cheerfully (앉아서 손 흔들기)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(0, -6.5, 10, 8.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(-5.5, -6.5, 3.6, 5.8, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Waving right paw
+    ctx.save();
+    ctx.translate(9, -10);
+    ctx.rotate(-0.65 + Math.sin(time * 5 + seed) * 0.35);
+    ctx.beginPath();
+    ctx.ellipse(0, -4.5, 3.5, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    drawPawFoot(ctx, -9, -1, 4.6, -0.15);
+    drawPawFoot(ctx, 9, -1, 4.6, 0.15);
+
+    drawPandaHead(ctx, 0, -23, 11.5, happy, 0.15, time, seed, 0.06);
+  }
+
+  // Nickname banner above lounging panda
+  const labelText = isDone ? `${nickname} · 완료` : nickname;
+  ctx.save();
+  ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+  const textW = ctx.measureText(labelText).width;
+  const pillW = textW + 14;
+  const pillH = 20;
+  const labelY = pose === 0 || pose === 2 || pose === 4 ? -38 : -46;
+
+  ctx.fillStyle = isMe ? 'rgba(220, 252, 231, 0.94)' : 'rgba(255, 255, 255, 0.92)';
+  ctx.strokeStyle = isMe ? '#15803d' : 'rgba(20, 83, 45, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(-pillW / 2, labelY - pillH / 2, pillW, pillH, 7);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = isMe ? '#14532d' : '#1e293b';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(labelText, 0, labelY + 0.5);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+export function drawLoungingPandas(
+  ctx: CanvasRenderingContext2D,
+  participants: ParticipantRecord[],
+  voteCountByUser: Record<string, number>,
+  monthIslands: MonthIsland[],
+  time: number,
+  currentUserId: string | null
+) {
+  if (participants.length === 0 || monthIslands.length === 0) return;
+
+  const firstIsland = monthIslands[0];
+  const baseOffset = firstIsland.offset;
+
+  // Arrange lounging pandas neatly on the left meadow beside the first calendar island
+  participants.forEach((p, idx) => {
+    const colLane = Math.floor(idx / 4);
+    const rowSlot = idx % 4;
+    const gx = baseOffset - 1.9 - colLane * 1.85;
+    const gy = baseOffset + 0.6 + rowSlot * 1.55 + (colLane % 2) * 0.65;
+    const pos = gridToScreen(gx, gy);
+
+    const voteCount = voteCountByUser[p.userId] || 0;
+    const happy = voteCount > 0;
+
+    drawSingleLoungingPanda(
+      ctx,
+      pos.x,
+      pos.y,
+      p.poseIndex,
+      happy,
+      p.nickname,
+      p.userId === currentUserId,
+      p.isDone,
+      time,
+      idx * 1.9
+    );
+  });
 }

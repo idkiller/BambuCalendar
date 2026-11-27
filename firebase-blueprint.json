@@ -25,6 +25,13 @@
           "maxLength": 10,
           "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
+        "voteDeadline": {
+          "type": "string",
+          "description": "Voting deadline date in YYYY-MM-DD format after which watering is locked.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
         "creatorId": {
           "type": "string",
           "description": "Firebase Auth UID of the room creator.",
@@ -48,6 +55,7 @@
         "title",
         "startDate",
         "endDate",
+        "voteDeadline",
         "creatorId",
         "creatorName",
         "createdAt"
@@ -104,6 +112,60 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "Participant": {
+      "title": "Participant",
+      "description": "A participant who entered a nickname in a room, displayed as a lounging panda next to the calendar.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "description": "Parent room document ID.",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the participant.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nickname": {
+          "type": "string",
+          "description": "Participant display nickname.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "poseIndex": {
+          "type": "integer",
+          "description": "Lounging panda pose variant index (0-5)."
+        },
+        "isDone": {
+          "type": "boolean",
+          "description": "Whether the participant clicked Done Watering to lock their votes until resumed."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the participant joined."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when participant state was updated."
+        }
+      },
+      "required": [
+        "roomId",
+        "userId",
+        "nickname",
+        "poseIndex",
+        "isDone",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -114,6 +176,10 @@
     "/rooms/{roomId}/votes/{voteId}": {
       "schema": { "$ref": "#/entities/Vote" },
       "description": "Water votes for dates within a room, keyed deterministically as {dateStr}__{userId}."
+    },
+    "/rooms/{roomId}/participants/{participantId}": {
+      "schema": { "$ref": "#/entities/Participant" },
+      "description": "Joined room participants with lounging panda poses and completion lock status, keyed by {userId}."
     }
   }
 }

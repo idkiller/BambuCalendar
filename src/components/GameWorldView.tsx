@@ -8,16 +8,19 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
 } from 'firebase/firestore';
 import {
   BarChart3,
+  Check,
   Copy,
   Crosshair,
   Droplets,
   Minus,
   Plus,
+  RotateCcw,
   UserRound,
   Volume2,
   VolumeX,
@@ -33,6 +36,7 @@ import {
   DateRankingItem,
   MAX_NICKNAME_LENGTH,
   MonthIsland,
+  ParticipantRecord,
   Particle,
   PlayerState,
   RoomData,
@@ -41,6 +45,7 @@ import {
 import {
   buildCalendarWorld,
   drawIsoTile,
+  drawLoungingPandas,
   drawMonthHeaders,
   drawPlayer,
   getGrowthStageLabel,
@@ -48,7 +53,7 @@ import {
   TILE_H,
   TILE_W,
 } from '../utils/bambooRenderer';
-import { buildRoomUrl, formatDisplayDate } from '../utils/dateUtils';
+import { buildRoomUrl, formatDate, formatDisplayDate } from '../utils/dateUtils';
 import { soundFx } from '../utils/soundFx';
 import { TopSevenSummary } from './TopSevenSummary';
 
@@ -72,6 +77,8 @@ export function GameWorldView({
   const [roomNotFound, setRoomNotFound] = useState(false);
 
   const [votesList, setVotesList] = useState<VoteRecord[]>([]);
+  const [participantsList, setParticipantsList] = useState<ParticipantRecord[]>([]);
+  const [participantsLoaded, setParticipantsLoaded] = useState(false);
   const [nickname, setNickname] = useState<string>(
     () => localStorage.getItem('bamboo_nickname')?.trim() || ''
   );
@@ -84,6 +91,7 @@ export function GameWorldView({
   const [currentTileIndex, setCurrentTileIndex] = useState(0);
   const [muted, setMuted] = useState(false);
   const [wateringBusy, setWateringBusy] = useState(false);
+  const [doneBusy, setDoneBusy] = useState(false);
 
   // Canvas & Animation Refs
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -94,6 +102,9 @@ export function GameWorldView({
   }>({ monthIslands: [], allTiles: [], activeTiles: [] });
 
   const votesByDateRef = useRef<Record<string, VoteRecord[]>>({});
+  const voteCountByUserRef = useRef<Record<string, number>>({});
+  const participantsRef = useRef<ParticipantRecord[]>([]);
+  const myHasVotedRef = useRef<boolean>(false);
   const currentUserIdRef = useRef<string | null>(null);
   const hoveredTileIdxRef = useRef<number>(-1);
   const particlesRef = useRef<Particle[]>([]);
@@ -164,6 +175,7 @@ export function GameWorldView({
           title: String(d.title || ''),
           startDate: String(d.startDate || ''),
           endDate: String(d.endDate || ''),
+          voteDeadline: d.voteDeadline ? String(d.voteDeadline) : undefined,
           creatorId: String(d.creatorId || ''),
           creatorName: String(d.creatorName || ''),
           createdAt: d.createdAt,
@@ -204,25 +216,98 @@ export function GameWorldView({
       }
     );
 
+    const participantsPath = `rooms/${roomId}/participants`;
+    const participantsQuery = query(
+      collection(db, 'rooms', roomId, 'participants'),
+      where('roomId', '==', roomId)
+    );
+    const unsubParticipants = onSnapshot(
+      participantsQuery,
+      (snap) => {
+        const list: ParticipantRecord[] = snap.docs.map((d) => {
+          const p = d.data();
+          return {
+            id: d.id,
+            roomId: String(p.roomId || roomId),
+            userId: String(p.userId || ''),
+            nickname: String(p.nickname || '익명'),
+            poseIndex: typeof p.poseIndex === 'number' ? p.poseIndex : 0,
+            isDone: Boolean(p.isDone),
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt,
+          };
+        });
+        list.sort((a, b) => a.nickname.localeCompare(b.nickname));
+        setParticipantsList(list);
+        setParticipantsLoaded(true);
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, participantsPath);
+      }
+    );
+
     return () => {
       unsubRoom();
       unsubVotes();
+      unsubParticipants();
     };
   }, [authReady, user, roomId]);
 
-  // Build grouped vote map
-  const votesByDate = useMemo(() => {
-    const map: Record<string, VoteRecord[]> = {};
+  // Build grouped vote maps
+  const { votesByDate, voteCountByUser } = useMemo(() => {
+    const byDate: Record<string, VoteRecord[]> = {};
+    const byUser: Record<string, number> = {};
     for (const v of votesList) {
-      if (!map[v.dateStr]) map[v.dateStr] = [];
-      map[v.dateStr].push(v);
+      if (!byDate[v.dateStr]) byDate[v.dateStr] = [];
+      byDate[v.dateStr].push(v);
+      byUser[v.userId] = (byUser[v.userId] || 0) + 1;
     }
-    return map;
+    return { votesByDate: byDate, voteCountByUser: byUser };
   }, [votesList]);
+
+  const myParticipant = useMemo(
+    () => participantsList.find((p) => p.userId === user?.uid) || null,
+    [participantsList, user]
+  );
+
+  const isDeadlinePassed = useMemo(() => {
+    if (!room?.voteDeadline) return false;
+    return formatDate(new Date()) > room.voteDeadline;
+  }, [room?.voteDeadline]);
+
+  const isDone = Boolean(myParticipant?.isDone);
+  const canWater = !isDeadlinePassed && !isDone;
+  const myHasVoted = Boolean(user && (voteCountByUser[user.uid] || 0) > 0);
 
   useEffect(() => {
     votesByDateRef.current = votesByDate;
-  }, [votesByDate]);
+    voteCountByUserRef.current = voteCountByUser;
+    participantsRef.current = participantsList;
+    myHasVotedRef.current = myHasVoted;
+  }, [votesByDate, voteCountByUser, participantsList, myHasVoted]);
+
+  // Ensure current user with confirmed nickname has a lounging panda participant entry in this room
+  useEffect(() => {
+    if (!room || !user || !participantsLoaded || !nicknameConfirmed || !nickname.trim()) {
+      return;
+    }
+    if (myParticipant) return;
+
+    const cleanNick = nickname.trim().slice(0, MAX_NICKNAME_LENGTH);
+    const poseIndex = Math.floor(Math.random() * 6);
+    const path = `rooms/${room.id}/participants/${user.uid}`;
+    setDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
+      roomId: room.id,
+      userId: user.uid,
+      nickname: cleanNick,
+      poseIndex,
+      isDone: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }).catch((err) => {
+      handleFirestoreError(err, OperationType.CREATE, path);
+    });
+  }, [room, user, participantsLoaded, nicknameConfirmed, nickname, myParticipant]);
 
   // Build calendar world when room dates load
   useEffect(() => {
@@ -368,6 +453,15 @@ export function GameWorldView({
 
   const toggleWaterCurrentTile = useCallback(async () => {
     if (!room || !user || wateringBusy) return;
+    if (isDeadlinePassed) {
+      onShowToast('투표 종료일이 지나 더 이상 물을 줄 수 없습니다.');
+      return;
+    }
+    if (isDone) {
+      onShowToast('완료 상태입니다. "다시 물주기"를 누르면 수정할 수 있어요.');
+      return;
+    }
+
     const activeTiles = worldRef.current.activeTiles;
     const tile = activeTiles[playerRef.current.tileIndex];
     if (!tile) return;
@@ -426,9 +520,71 @@ export function GameWorldView({
     room,
     user,
     wateringBusy,
+    isDeadlinePassed,
+    isDone,
     nicknameConfirmed,
     nickname,
     spawnWaterParticles,
+    onShowToast,
+  ]);
+
+  const handleToggleDone = useCallback(async () => {
+    if (!room || !user || doneBusy) return;
+    if (isDeadlinePassed) {
+      onShowToast('투표 기간이 종료되어 구경만 가능합니다.');
+      return;
+    }
+    if (!nicknameConfirmed || !nickname.trim()) {
+      setShowNicknameModal(true);
+      return;
+    }
+
+    const nextDone = !isDone;
+    const cleanNick = nickname.trim().slice(0, MAX_NICKNAME_LENGTH);
+    const path = `rooms/${room.id}/participants/${user.uid}`;
+    setDoneBusy(true);
+    try {
+      if (myParticipant) {
+        try {
+          await updateDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
+            isDone: nextDone,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, path);
+        }
+      } else {
+        try {
+          await setDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
+            roomId: room.id,
+            userId: user.uid,
+            nickname: cleanNick,
+            poseIndex: Math.floor(Math.random() * 6),
+            isDone: nextDone,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, path);
+        }
+      }
+      onShowToast(
+        nextDone
+          ? '물주기를 완료했습니다. 이제 구경만 가능합니다.'
+          : '다시 물주기를 할 수 있습니다!'
+      );
+    } finally {
+      setDoneBusy(false);
+    }
+  }, [
+    room,
+    user,
+    doneBusy,
+    isDeadlinePassed,
+    nicknameConfirmed,
+    nickname,
+    isDone,
+    myParticipant,
     onShowToast,
   ]);
 
@@ -546,6 +702,15 @@ export function GameWorldView({
 
       drawMonthHeaders(ctx, monthIslands);
 
+      drawLoungingPandas(
+        ctx,
+        participantsRef.current,
+        voteCountByUserRef.current,
+        monthIslands,
+        time,
+        currentUserIdRef.current
+      );
+
       const currentTile = activeTiles[p.tileIndex];
       const playerDepth = p.gx + p.gy;
       let playerDrawn = false;
@@ -553,7 +718,7 @@ export function GameWorldView({
       for (const tile of allTiles) {
         const tileDepth = tile.gx + tile.gy;
         if (!playerDrawn && playerDepth < tileDepth - 0.1) {
-          drawPlayer(ctx, p, time);
+          drawPlayer(ctx, p, time, myHasVotedRef.current);
           playerDrawn = true;
         }
         const votes = votesByDateRef.current[tile.dateStr] || [];
@@ -570,7 +735,7 @@ export function GameWorldView({
       }
 
       if (!playerDrawn && activeTiles.length > 0) {
-        drawPlayer(ctx, p, time);
+        drawPlayer(ctx, p, time, myHasVotedRef.current);
       }
 
       // Water / Cancel Particles
@@ -724,8 +889,32 @@ export function GameWorldView({
     setNicknameConfirmed(true);
     setShowNicknameModal(false);
 
-    // Sync updated nickname to user's existing votes in this room
+    // Upsert lounging participant record and sync updated nickname to existing votes
     if (user && room) {
+      const partPath = `rooms/${room.id}/participants/${user.uid}`;
+      try {
+        if (myParticipant) {
+          if (myParticipant.nickname !== clean) {
+            await updateDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
+              nickname: clean,
+              updatedAt: serverTimestamp(),
+            });
+          }
+        } else {
+          await setDoc(doc(db, 'rooms', room.id, 'participants', user.uid), {
+            roomId: room.id,
+            userId: user.uid,
+            nickname: clean,
+            poseIndex: Math.floor(Math.random() * 6),
+            isDone: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, partPath);
+      }
+
       const myVotes = votesList.filter(
         (v) => v.userId === user.uid && v.nickname !== clean
       );
@@ -745,7 +934,7 @@ export function GameWorldView({
       }
     }
 
-    onShowToast(`'${clean}' 정원사로 입장했습니다.`);
+    onShowToast(`'${clean}' 판다로 입장했습니다.`);
   };
 
   const handleCopyShareUrl = async () => {
@@ -834,12 +1023,28 @@ export function GameWorldView({
 
       {/* Top HUD */}
       <header className="fixed top-3 left-3 right-3 z-10 pointer-events-none flex items-start justify-between gap-3 flex-wrap">
-        <div className="pointer-events-auto bg-white/92 backdrop-blur-md rounded-2xl border border-emerald-950/10 px-4 py-2.5 shadow-sm max-w-[300px] sm:max-w-md">
+        <div className="pointer-events-auto bg-white/92 backdrop-blur-md rounded-2xl border border-emerald-950/10 px-4 py-2.5 shadow-sm max-w-[320px] sm:max-w-lg">
           <h1 className="text-sm sm:text-base font-bold text-[#18231c] truncate">
             {room.title}
           </h1>
-          <div className="text-[11px] sm:text-xs text-[#64748b] font-mono tabular-nums">
-            {room.startDate} ~ {room.endDate}
+          <div className="text-[11px] sm:text-xs text-[#64748b] font-mono tabular-nums flex items-center gap-1.5 flex-wrap">
+            <span>
+              {room.startDate} ~ {room.endDate}
+            </span>
+            {room.voteDeadline && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span
+                  className={
+                    isDeadlinePassed ? 'text-rose-600 font-semibold' : ''
+                  }
+                >
+                  {isDeadlinePassed
+                    ? `투표 종료 (${room.voteDeadline})`
+                    : `투표 마감 ${room.voteDeadline}`}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -961,24 +1166,61 @@ export function GameWorldView({
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={wateringBusy}
-                onClick={toggleWaterCurrentTile}
-                className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
-                  iWatered
-                    ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                    : 'bg-[#0284c7] text-white hover:bg-[#0369a1]'
-                }`}
-              >
-                <Droplets className="w-4 h-4" />
-                <span>{iWatered ? '물 취소' : '물 주기'}</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {isDeadlinePassed ? (
+                  <span className="px-3.5 py-2.5 rounded-xl bg-slate-100 text-[#64748b] text-xs font-semibold whitespace-nowrap">
+                    투표 종료 (구경 중)
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={wateringBusy || !canWater}
+                      onClick={toggleWaterCurrentTile}
+                      className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
+                        iWatered
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                          : 'bg-[#0284c7] text-white hover:bg-[#0369a1]'
+                      }`}
+                    >
+                      <Droplets className="w-4 h-4" />
+                      <span>{iWatered ? '물 취소' : '물 주기'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={doneBusy}
+                      onClick={handleToggleDone}
+                      className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                        isDone
+                          ? 'bg-[#15803d] text-white hover:bg-[#166534]'
+                          : 'bg-emerald-50 text-[#14532d] border border-emerald-950/15 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {isDone ? (
+                        <>
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>다시 물주기</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>완료</span>
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="hidden sm:block text-center text-[11px] text-[#4b5b50] mt-1.5">
-            방향키 / WASD 또는 날짜 클릭으로 점프 · 스페이스바로 물 주기/취소 · 드래그로 화면 이동
+            {isDeadlinePassed
+              ? '투표가 종료되어 구경만 가능합니다 · 방향키/클릭으로 달력 둘러보기'
+              : isDone
+                ? '완료 상태라 구경만 가능합니다 · "다시 물주기"를 누르면 다시 물을 줄 수 있습니다'
+                : '방향키 / WASD 또는 날짜 클릭으로 점프 · 스페이스바로 물 주기/취소 · 드래그로 화면 이동'}
           </div>
         </div>
       )}

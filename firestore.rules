@@ -28,11 +28,12 @@ service cloud.firestore {
     }
 
     function isValidRoom(data) {
-      return data.keys().hasAll(['title', 'startDate', 'endDate', 'creatorId', 'creatorName', 'createdAt'])
-        && data.keys().hasOnly(['title', 'startDate', 'endDate', 'creatorId', 'creatorName', 'createdAt'])
+      return data.keys().hasAll(['title', 'startDate', 'endDate', 'voteDeadline', 'creatorId', 'creatorName', 'createdAt'])
+        && data.keys().hasOnly(['title', 'startDate', 'endDate', 'voteDeadline', 'creatorId', 'creatorName', 'createdAt'])
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 50
         && isValidDateStr(data.startDate)
         && isValidDateStr(data.endDate)
+        && isValidDateStr(data.voteDeadline)
         && data.startDate <= data.endDate
         && data.creatorId is string && isValidId(data.creatorId) && data.creatorId == request.auth.uid
         && data.creatorName is string && data.creatorName.size() >= 1 && data.creatorName.size() <= 24
@@ -49,6 +50,24 @@ service cloud.firestore {
         && data.nickname is string && data.nickname.size() >= 1 && data.nickname.size() <= 24
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
+    }
+
+    function isValidParticipant(data, roomId, participantId) {
+      return data.keys().hasAll(['roomId', 'userId', 'nickname', 'poseIndex', 'isDone', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['roomId', 'userId', 'nickname', 'poseIndex', 'isDone', 'createdAt', 'updatedAt'])
+        && data.roomId is string && isValidId(data.roomId) && data.roomId == roomId && data.roomId.size() <= 32
+        && data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid
+        && participantId == request.auth.uid
+        && data.nickname is string && data.nickname.size() >= 1 && data.nickname.size() <= 24
+        && data.poseIndex is int && data.poseIndex >= 0 && data.poseIndex <= 5
+        && data.isDone is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isParticipantUnlocked(roomId) {
+      return !exists(/databases/$(database)/documents/rooms/$(roomId)/participants/$(request.auth.uid))
+        || get(/databases/$(database)/documents/rooms/$(roomId)/participants/$(request.auth.uid)).data.isDone == false;
     }
 
     match /rooms/{roomId} {
@@ -78,7 +97,8 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && exists(/databases/$(database)/documents/rooms/$(roomId))
           && incoming().dateStr >= get(/databases/$(database)/documents/rooms/$(roomId)).data.startDate
-          && incoming().dateStr <= get(/databases/$(database)/documents/rooms/$(roomId)).data.endDate;
+          && incoming().dateStr <= get(/databases/$(database)/documents/rooms/$(roomId)).data.endDate
+          && isParticipantUnlocked(roomId);
         allow update: if isSignedIn()
           && isValidId(roomId)
           && isValidId(voteId)
@@ -92,6 +112,39 @@ service cloud.firestore {
         allow delete: if isSignedIn()
           && isValidId(roomId)
           && isValidId(voteId)
+          && existing().userId == request.auth.uid
+          && exists(/databases/$(database)/documents/rooms/$(roomId))
+          && isParticipantUnlocked(roomId);
+      }
+
+      match /participants/{participantId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(participantId)
+          && exists(/databases/$(database)/documents/rooms/$(roomId));
+        allow list: if isSignedIn()
+          && isValidId(roomId)
+          && resource.data.roomId == roomId;
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(participantId)
+          && isValidParticipant(incoming(), roomId, participantId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/rooms/$(roomId));
+        allow update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(participantId)
+          && isValidParticipant(incoming(), roomId, participantId)
+          && incoming().diff(existing()).affectedKeys().hasOnly(['nickname', 'isDone', 'updatedAt'])
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().userId == existing().userId
+          && incoming().roomId == existing().roomId
+          && incoming().poseIndex == existing().poseIndex;
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(participantId)
           && existing().userId == request.auth.uid
           && exists(/databases/$(database)/documents/rooms/$(roomId));
       }

@@ -9,6 +9,7 @@ export interface RoomData {
   title: string;
   startDate: string;
   endDate: string;
+  voteDeadline?: string;
   creatorId: string;
   creatorName: string;
   createdAt?: unknown;
@@ -20,6 +21,17 @@ export interface VoteRecord {
   dateStr: string;
   userId: string;
   nickname: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
+export interface ParticipantRecord {
+  id: string;
+  roomId: string;
+  userId: string;
+  nickname: string;
+  poseIndex: number;
+  isDone: boolean;
   createdAt?: unknown;
   updatedAt?: unknown;
 }
