@@ -119,6 +119,9 @@ export function GameWorldView({
   const canWaterRef = useRef<boolean>(true);
   const isRoomCreatorRef = useRef<boolean>(false);
   const pandaRemoveHitsRef = useRef<PandaRemoveButtonHit[]>([]);
+  const pressedRemoveHitRef = useRef<PandaRemoveButtonHit | null>(null);
+  const pointerDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const hoveredRemoveUserIdRef = useRef<string | null>(null);
   const hadParticipantRef = useRef<boolean>(false);
   const isLeavingRef = useRef<boolean>(false);
   const currentUserIdRef = useRef<string | null>(null);
@@ -807,7 +810,8 @@ export function GameWorldView({
         currentUserIdRef.current,
         !canWaterNow,
         isRoomCreatorRef.current,
-        pandaRemoveHitsRef.current
+        pandaRemoveHitsRef.current,
+        hoveredRemoveUserIdRef.current
       );
 
       const currentTile = activeTiles[p.tileIndex];
@@ -869,9 +873,12 @@ export function GameWorldView({
   // Pointer helpers for hit-testing & panning
   const screenToWorld = (clientX: number, clientY: number) => {
     const cam = cameraRef.current;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const originX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const originY = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
     return {
-      wx: (clientX - window.innerWidth / 2) / cam.zoom + cam.x,
-      wy: (clientY - window.innerHeight / 2) / cam.zoom + cam.y,
+      wx: (clientX - originX) / cam.zoom + cam.x,
+      wy: (clientY - originY) / cam.zoom + cam.y,
     };
   };
 
@@ -912,6 +919,17 @@ export function GameWorldView({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const cam = cameraRef.current;
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
+
+    const removeHit = findRemoveHitAtScreenPos(e.clientX, e.clientY);
+    pressedRemoveHitRef.current = removeHit;
+    if (removeHit) {
+      // Do not start panning camera when pressing directly on a participant remove button
+      cam.isDragging = false;
+      cam.dragMoved = false;
+      return;
+    }
+
     cam.isDragging = true;
     cam.dragMoved = false;
     cam.lastMouseX = e.clientX;
@@ -920,10 +938,21 @@ export function GameWorldView({
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const cam = cameraRef.current;
+    if (pressedRemoveHitRef.current) {
+      const removeHit = findRemoveHitAtScreenPos(e.clientX, e.clientY);
+      hoveredRemoveUserIdRef.current = removeHit ? removeHit.userId : null;
+      setHoveredRemoveBtn(Boolean(removeHit));
+      return;
+    }
+
     if (cam.isDragging) {
       const dx = e.clientX - cam.lastMouseX;
       const dy = e.clientY - cam.lastMouseY;
-      if (Math.hypot(dx, dy) > 4) {
+      const totalDist = Math.hypot(
+        e.clientX - pointerDownPosRef.current.x,
+        e.clientY - pointerDownPosRef.current.y
+      );
+      if (totalDist > 8) {
         cam.dragMoved = true;
         cam.manualPan = true;
       }
@@ -937,6 +966,7 @@ export function GameWorldView({
       cam.lastMouseY = e.clientY;
     } else {
       const removeHit = findRemoveHitAtScreenPos(e.clientX, e.clientY);
+      hoveredRemoveUserIdRef.current = removeHit ? removeHit.userId : null;
       setHoveredRemoveBtn(Boolean(removeHit));
       const hovered = removeHit ? null : findTileAtScreenPos(e.clientX, e.clientY);
       hoveredTileIdxRef.current = hovered ? hovered.activeIdx : -1;
@@ -944,6 +974,25 @@ export function GameWorldView({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pressedHit = pressedRemoveHitRef.current;
+    pressedRemoveHitRef.current = null;
+
+    if (pressedHit) {
+      const releaseDist = Math.hypot(
+        e.clientX - pointerDownPosRef.current.x,
+        e.clientY - pointerDownPosRef.current.y
+      );
+      const releaseHit = findRemoveHitAtScreenPos(e.clientX, e.clientY);
+      if (releaseHit || releaseDist <= 18) {
+        const target = releaseHit || pressedHit;
+        setRemoveTarget({
+          userId: target.userId,
+          nickname: target.nickname,
+        });
+      }
+      return;
+    }
+
     const cam = cameraRef.current;
     if (!cam.isDragging) return;
     cam.isDragging = false;

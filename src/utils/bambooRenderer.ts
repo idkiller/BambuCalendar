@@ -765,7 +765,8 @@ function drawSingleLoungingPanda(
   time: number,
   seed: number,
   showRemoveButton = false,
-  removeHitsOut?: PandaRemoveButtonHit[]
+  removeHitsOut?: PandaRemoveButtonHit[],
+  isRemoveHovered = false
 ) {
   ctx.save();
   ctx.translate(x, y);
@@ -961,8 +962,8 @@ function drawSingleLoungingPanda(
   ctx.save();
   ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
   const textW = ctx.measureText(labelText).width;
-  const pillW = showRemoveButton ? textW + 30 : textW + 14;
-  const pillH = 20;
+  const pillW = showRemoveButton ? textW + 34 : textW + 14;
+  const pillH = 22;
   const labelY = pose === 1 || pose === 4 ? -48 : -38;
 
   ctx.fillStyle = isMe ? 'rgba(220, 252, 231, 0.94)' : 'rgba(255, 255, 255, 0.92)';
@@ -976,27 +977,27 @@ function drawSingleLoungingPanda(
   ctx.fillStyle = isMe ? '#14532d' : '#1e293b';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(labelText, showRemoveButton ? -8 : 0, labelY + 0.5);
+  ctx.fillText(labelText, showRemoveButton ? -9 : 0, labelY + 0.5);
 
   if (showRemoveButton) {
-    const btnX = pillW / 2 - 10;
+    const btnX = pillW / 2 - 11.5;
     const btnY = labelY;
-    ctx.fillStyle = '#ffe4e6';
-    ctx.strokeStyle = '#fda4af';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = isRemoveHovered ? '#fecdd3' : '#ffe4e6';
+    ctx.strokeStyle = isRemoveHovered ? '#e11d48' : '#fda4af';
+    ctx.lineWidth = isRemoveHovered ? 1.4 : 1;
     ctx.beginPath();
-    ctx.arc(btnX, btnY, 6.2, 0, Math.PI * 2);
+    ctx.arc(btnX, btnY, 7.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
     ctx.strokeStyle = '#be123c';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.7;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(btnX - 2.3, btnY - 2.3);
-    ctx.lineTo(btnX + 2.3, btnY + 2.3);
-    ctx.moveTo(btnX + 2.3, btnY - 2.3);
-    ctx.lineTo(btnX - 2.3, btnY + 2.3);
+    ctx.moveTo(btnX - 2.6, btnY - 2.6);
+    ctx.lineTo(btnX + 2.6, btnY + 2.6);
+    ctx.moveTo(btnX + 2.6, btnY - 2.6);
+    ctx.lineTo(btnX - 2.6, btnY + 2.6);
     ctx.stroke();
 
     if (removeHitsOut) {
@@ -1005,7 +1006,7 @@ function drawSingleLoungingPanda(
         nickname,
         wx: x + btnX,
         wy: y + btnY,
-        radius: 11,
+        radius: 18,
       });
     }
   }
@@ -1023,7 +1024,8 @@ export function drawLoungingPandas(
   currentUserId: string | null,
   includeCurrentUser = false,
   isRoomCreator = false,
-  removeHitsOut?: PandaRemoveButtonHit[]
+  removeHitsOut?: PandaRemoveButtonHit[],
+  hoveredRemoveUserId: string | null = null
 ) {
   if (removeHitsOut) {
     removeHitsOut.length = 0;
@@ -1064,7 +1066,8 @@ export function drawLoungingPandas(
       time,
       idx * 1.9,
       isRoomCreator && !isMe,
-      removeHitsOut
+      removeHitsOut,
+      hoveredRemoveUserId === p.userId
     );
   });
 }
