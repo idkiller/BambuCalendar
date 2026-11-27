@@ -95,7 +95,7 @@ export function TopSevenSummary({
             </p>
           </div>
         ) : (
-          <div className="flex items-end justify-start lg:justify-center gap-4 overflow-x-auto pt-4 pb-3 border-b-4 border-[#8d6e63]">
+          <div className="flex items-end justify-start xl:justify-center gap-4 overflow-x-auto pt-4 pb-3 border-b-4 border-[#8d6e63]">
             {rankings.map((item, idx) => {
               const rank = idx + 1;
               const voterNames = item.votes

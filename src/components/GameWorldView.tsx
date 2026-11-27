@@ -323,14 +323,20 @@ export function GameWorldView({
     });
   }, [room, user, participantsLoaded, nicknameConfirmed, nickname, myParticipant]);
 
-  // Build calendar world when room dates load
+  const calendarWorld = useMemo(() => {
+    if (!room) {
+      return { monthIslands: [], allTiles: [], activeTiles: [] };
+    }
+    return buildCalendarWorld(room.startDate, room.endDate);
+  }, [room?.id, room?.startDate, room?.endDate]);
+
+  // Sync worldRef and reset player/camera when room calendar world changes
   useEffect(() => {
     if (!room) return;
-    const world = buildCalendarWorld(room.startDate, room.endDate);
-    worldRef.current = world;
+    worldRef.current = calendarWorld;
 
-    if (world.activeTiles.length > 0) {
-      const first = world.activeTiles[0];
+    if (calendarWorld.activeTiles.length > 0) {
+      const first = calendarWorld.activeTiles[0];
       playerRef.current = {
         tileIndex: 0,
         gx: first.gx,
@@ -972,8 +978,7 @@ export function GameWorldView({
   // Top 7 Rankings calculation
   const topSevenRankings: DateRankingItem[] = useMemo(() => {
     if (!room) return [];
-    const activeTiles = worldRef.current.activeTiles;
-    return activeTiles
+    return calendarWorld.activeTiles
       .map((tile) => {
         const votes = votesByDate[tile.dateStr] || [];
         return { tile, votes, count: votes.length };
@@ -984,7 +989,7 @@ export function GameWorldView({
           b.count - a.count || a.tile.dateStr.localeCompare(b.tile.dateStr)
       )
       .slice(0, 7);
-  }, [room, votesByDate]);
+  }, [room, calendarWorld, votesByDate]);
 
   // Loading or waiting for anonymous session
   if (roomLoading || !authReady || !user) {
@@ -1019,7 +1024,7 @@ export function GameWorldView({
     );
   }
 
-  const currentTile = worldRef.current.activeTiles[currentTileIndex] || null;
+  const currentTile = calendarWorld.activeTiles[currentTileIndex] || null;
   const currentVotes = currentTile ? votesByDate[currentTile.dateStr] || [] : [];
   const waterCount = currentVotes.length;
   const iWatered = Boolean(
