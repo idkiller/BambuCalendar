@@ -23,10 +23,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
-    }
-
     function isValidDateStr(d) {
       return d is string && d.size() == 10 && d.matches('^\\d{4}-\\d{2}-\\d{2}$');
     }
@@ -58,13 +54,13 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow get: if isSignedIn() && isValidId(roomId);
       allow list: if isSignedIn() && resource.data.creatorId == request.auth.uid;
-      allow create: if isVerified()
+      allow create: if isSignedIn()
         && isValidId(roomId)
         && roomId.size() <= 32
         && isValidRoom(incoming())
         && incoming().createdAt == request.time;
       allow update: if false;
-      allow delete: if isVerified() && isValidId(roomId) && existing().creatorId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(roomId) && existing().creatorId == request.auth.uid;
 
       match /votes/{voteId} {
         allow get: if isSignedIn()
@@ -74,7 +70,7 @@ service cloud.firestore {
         allow list: if isSignedIn()
           && isValidId(roomId)
           && resource.data.roomId == roomId;
-        allow create: if isVerified()
+        allow create: if isSignedIn()
           && isValidId(roomId)
           && isValidId(voteId)
           && isValidVote(incoming(), roomId, voteId)
@@ -83,7 +79,7 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/rooms/$(roomId))
           && incoming().dateStr >= get(/databases/$(database)/documents/rooms/$(roomId)).data.startDate
           && incoming().dateStr <= get(/databases/$(database)/documents/rooms/$(roomId)).data.endDate;
-        allow update: if isVerified()
+        allow update: if isSignedIn()
           && isValidId(roomId)
           && isValidId(voteId)
           && isValidVote(incoming(), roomId, voteId)
@@ -93,7 +89,7 @@ service cloud.firestore {
           && incoming().userId == existing().userId
           && incoming().roomId == existing().roomId
           && incoming().dateStr == existing().dateStr;
-        allow delete: if isVerified()
+        allow delete: if isSignedIn()
           && isValidId(roomId)
           && isValidId(voteId)
           && existing().userId == request.auth.uid

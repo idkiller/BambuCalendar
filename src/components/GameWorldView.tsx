@@ -16,7 +16,6 @@ import {
   Copy,
   Crosshair,
   Droplets,
-  LogIn,
   Minus,
   Plus,
   UserRound,
@@ -27,7 +26,6 @@ import {
   db,
   handleFirestoreError,
   OperationType,
-  signInWithGoogle,
 } from '../firebase';
 import {
   CalendarTile,
@@ -86,7 +84,6 @@ export function GameWorldView({
   const [currentTileIndex, setCurrentTileIndex] = useState(0);
   const [muted, setMuted] = useState(false);
   const [wateringBusy, setWateringBusy] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
 
   // Canvas & Animation Refs
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -133,11 +130,10 @@ export function GameWorldView({
     currentUserIdRef.current = user?.uid || null;
   }, [user]);
 
-  // Prefill nickname from Google account if none stored yet
+  // Prefill nickname if none stored yet
   useEffect(() => {
     if (user && !nickname) {
-      const fallback = (user.displayName || '정원사').trim().slice(0, MAX_NICKNAME_LENGTH);
-      setNicknameDraft(fallback);
+      setNicknameDraft('');
     }
   }, [user, nickname]);
 
@@ -784,52 +780,8 @@ export function GameWorldView({
       .slice(0, 7);
   }, [room, votesByDate]);
 
-  // 1. Unauthenticated Entry Gate
-  if (authReady && !user) {
-    return (
-      <div className="min-h-screen bg-[#f4f7f2] flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-emerald-950/10 p-8 shadow-sm">
-          <div className="text-xs font-semibold text-[#15803d] mb-2">
-            Bamboo Calendar
-          </div>
-          <h1 className="text-2xl font-bold text-[#18231c]">
-            대나무 달력 방에 초대되었습니다
-          </h1>
-          <p className="mt-2 text-sm text-[#4b5b50] leading-relaxed">
-            다른 참여자들과 실시간으로 날짜를 고르고 대나무를 키우려면 먼저 Google 계정으로 로그인해 주세요.
-          </p>
-
-          <button
-            type="button"
-            disabled={signingIn}
-            onClick={async () => {
-              setSigningIn(true);
-              try {
-                await signInWithGoogle();
-              } finally {
-                setSigningIn(false);
-              }
-            }}
-            className="mt-6 w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#15803d] text-white text-sm font-semibold hover:bg-[#166534] disabled:opacity-60 transition-colors cursor-pointer"
-          >
-            <LogIn className="w-4 h-4" />
-            <span>{signingIn ? '로그인 중...' : 'Google로 로그인하고 입장하기'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onBackHome}
-            className="mt-3 w-full py-2.5 px-4 rounded-xl border border-slate-200 text-xs font-semibold text-[#4b5b50] hover:bg-slate-50 transition-colors cursor-pointer"
-          >
-            새 달력 방 만들기 화면으로
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 2. Loading or Room Not Found
-  if (roomLoading || !authReady) {
+  // Loading or waiting for anonymous session
+  if (roomLoading || !authReady || !user) {
     return (
       <div className="min-h-screen bg-[#f4f7f2] flex items-center justify-center p-6">
         <div className="text-sm font-medium text-[#4b5b50]">

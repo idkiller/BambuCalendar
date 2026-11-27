@@ -10,13 +10,12 @@ import {
   setDoc,
   where,
 } from 'firebase/firestore';
-import { Calendar, Copy, ExternalLink, LogIn, LogOut, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Copy, ExternalLink, Plus, Trash2 } from 'lucide-react';
 import {
   db,
+  ensureAnonymousAuth,
   handleFirestoreError,
   OperationType,
-  signInWithGoogle,
-  signOutUser,
 } from '../firebase';
 import {
   MAX_NICKNAME_LENGTH,
@@ -125,19 +124,10 @@ export function CreateRoomView({
 
     setCreating(true);
     try {
-      let activeUser = user;
-      if (!activeUser) {
-        const cred = await signInWithGoogle();
-        activeUser = cred.user;
-      }
-
+      const activeUser = user || (await ensureAnonymousAuth());
       const roomId = generateRoomId();
       const storedNick = localStorage.getItem('bamboo_nickname')?.trim();
-      const creatorName = (
-        storedNick ||
-        activeUser.displayName ||
-        '정원사'
-      )
+      const creatorName = (storedNick || '정원사')
         .trim()
         .slice(0, MAX_NICKNAME_LENGTH);
 
@@ -165,9 +155,7 @@ export function CreateRoomView({
 
       onEnterRoom(roomId);
     } catch (err) {
-      if (err instanceof Error && err.message.includes('popup-closed-by-user')) {
-        setFormError('방을 만들려면 Google 로그인이 필요합니다.');
-      } else if (err instanceof Error && !err.message.startsWith('{')) {
+      if (err instanceof Error && !err.message.startsWith('{')) {
         setFormError('방 생성 중 오류가 발생했습니다. 다시 시도해 주세요.');
       } else {
         throw err;
@@ -202,13 +190,21 @@ export function CreateRoomView({
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const focusTitleInput = () => {
+    const el = document.getElementById('room-title');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f4f7f2] text-[#18231c] flex flex-col">
       {/* 3-Zone Top Bar */}
       <header className="border-b border-emerald-950/10 bg-white/80 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-8">
           <a
-            href="/"
+            href="./"
             onClick={(e) => {
               e.preventDefault();
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -243,25 +239,14 @@ export function CreateRoomView({
           </nav>
 
           <div className="flex items-center gap-3 shrink-0">
-            {user ? (
-              <button
-                type="button"
-                onClick={() => signOutUser()}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-950/15 bg-white text-xs font-semibold text-[#18231c] hover:bg-emerald-50/60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>로그아웃</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => signInWithGoogle()}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#15803d] text-xs font-semibold text-white hover:bg-[#166534] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Google 로그인</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={focusTitleInput}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#15803d] text-xs font-semibold text-white hover:bg-[#166534] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>새 방 만들기</span>
+            </button>
           </div>
         </div>
       </header>
@@ -276,13 +261,13 @@ export function CreateRoomView({
           >
             <div>
               <div className="text-xs font-semibold text-[#15803d] tracking-wide mb-2">
-                함께 키우는 일정 조율 게임
+                로그인 없이 바로 시작하는 일정 조율 게임
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-[#18231c] tracking-tight leading-tight">
                 우리 언제 만날까?
               </h1>
               <p className="mt-3 text-sm md:text-base text-[#4b5b50] leading-relaxed">
-                기간을 정해 달력 방 URL을 공유하세요. 친구들이 가능한 날짜에 점프해 물을 줄수록 죽순이 거대한 대나무로 자라납니다.
+                기간을 정해 달력 방 URL을 공유하세요. 별도 회원가입 없이 닉네임만으로 접속해 원하는 날짜에 물을 주고 대나무를 함께 키울 수 있습니다.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-7 space-y-5">
@@ -348,16 +333,16 @@ export function CreateRoomView({
 
                 <button
                   type="submit"
-                  disabled={creating}
+                  disabled={creating || !authReady}
                   className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-[#15803d] text-white text-sm font-semibold hover:bg-[#166534] disabled:opacity-60 transition-colors shadow-sm cursor-pointer whitespace-nowrap"
                 >
                   <Plus className="w-4 h-4" />
                   <span>
                     {creating
                       ? '달력 방 생성 중...'
-                      : user
-                        ? '게임 방 만들고 URL 받기'
-                        : 'Google 로그인 후 방 만들기'}
+                      : !authReady
+                        ? '연결 준비 중...'
+                        : '게임 방 만들고 URL 받기'}
                   </span>
                 </button>
               </form>
@@ -387,7 +372,7 @@ export function CreateRoomView({
                 </span>
               </div>
               <p className="mt-1.5 text-sm text-[#4b5b50]">
-                한 사람이 날짜당 1회 물을 줄 수 있고, 언제든 물주기를 취소할 수 있습니다.
+                한 브라우저당 날짜별 1회 물을 줄 수 있고, 언제든 물주기를 취소할 수 있습니다.
               </p>
             </div>
 
@@ -415,19 +400,13 @@ export function CreateRoomView({
         {/* My Created Rooms */}
         <section id="my-rooms-section" className="pt-2">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-[#18231c]">내가 만든 달력 방</h2>
-            {user && (
-              <span className="text-xs text-[#64748b]">
-                {user.displayName || user.email}
-              </span>
-            )}
+            <h2 className="text-lg font-bold text-[#18231c]">이 브라우저에서 만든 방</h2>
+            <span className="text-xs text-[#64748b]">
+              로그인 없이 현재 브라우저 기준으로 자동 저장됩니다
+            </span>
           </div>
 
-          {!user ? (
-            <div className="bg-white rounded-2xl border border-emerald-950/10 p-6 text-sm text-[#64748b]">
-              Google 로그인 후 방을 만들면 이곳에서 내가 만든 방 목록과 공유 링크를 다시 관리할 수 있습니다.
-            </div>
-          ) : loadingRooms ? (
+          {!authReady || loadingRooms ? (
             <div className="bg-white rounded-2xl border border-emerald-950/10 p-6 text-sm text-[#64748b]">
               방 목록을 불러오는 중입니다...
             </div>
