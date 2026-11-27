@@ -1,0 +1,6 @@
+{
+  "name": "대나무 달력 · Bamboo Calendar",
+  "description": "쿼터뷰 달력 위를 점프하며 원하는 날짜에 물을 주고, 친구들과 함께 죽순을 거대한 대나무로 키워 일정을 정하는 게이미피케이션 날짜 조율 게임입니다.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

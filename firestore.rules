@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidDateStr(d) {
+      return d is string && d.size() == 10 && d.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidRoom(data) {
+      return data.keys().hasAll(['title', 'startDate', 'endDate', 'creatorId', 'creatorName', 'createdAt'])
+        && data.keys().hasOnly(['title', 'startDate', 'endDate', 'creatorId', 'creatorName', 'createdAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 50
+        && isValidDateStr(data.startDate)
+        && isValidDateStr(data.endDate)
+        && data.startDate <= data.endDate
+        && data.creatorId is string && isValidId(data.creatorId) && data.creatorId == request.auth.uid
+        && data.creatorName is string && data.creatorName.size() >= 1 && data.creatorName.size() <= 24
+        && data.createdAt is timestamp;
+    }
+
+    function isValidVote(data, roomId, voteId) {
+      return data.keys().hasAll(['roomId', 'dateStr', 'userId', 'nickname', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['roomId', 'dateStr', 'userId', 'nickname', 'createdAt', 'updatedAt'])
+        && data.roomId is string && isValidId(data.roomId) && data.roomId == roomId && data.roomId.size() <= 32
+        && isValidDateStr(data.dateStr)
+        && data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid
+        && voteId == data.dateStr + '__' + request.auth.uid
+        && data.nickname is string && data.nickname.size() >= 1 && data.nickname.size() <= 24
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /rooms/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId);
+      allow list: if isSignedIn() && resource.data.creatorId == request.auth.uid;
+      allow create: if isVerified()
+        && isValidId(roomId)
+        && roomId.size() <= 32
+        && isValidRoom(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerified() && isValidId(roomId) && existing().creatorId == request.auth.uid;
+
+      match /votes/{voteId} {
+        allow get: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(voteId)
+          && exists(/databases/$(database)/documents/rooms/$(roomId));
+        allow list: if isSignedIn()
+          && isValidId(roomId)
+          && resource.data.roomId == roomId;
+        allow create: if isVerified()
+          && isValidId(roomId)
+          && isValidId(voteId)
+          && isValidVote(incoming(), roomId, voteId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/rooms/$(roomId))
+          && incoming().dateStr >= get(/databases/$(database)/documents/rooms/$(roomId)).data.startDate
+          && incoming().dateStr <= get(/databases/$(database)/documents/rooms/$(roomId)).data.endDate;
+        allow update: if isVerified()
+          && isValidId(roomId)
+          && isValidId(voteId)
+          && isValidVote(incoming(), roomId, voteId)
+          && incoming().diff(existing()).affectedKeys().hasOnly(['nickname', 'updatedAt'])
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().userId == existing().userId
+          && incoming().roomId == existing().roomId
+          && incoming().dateStr == existing().dateStr;
+        allow delete: if isVerified()
+          && isValidId(roomId)
+          && isValidId(voteId)
+          && existing().userId == request.auth.uid
+          && exists(/databases/$(database)/documents/rooms/$(roomId));
+      }
+    }
+  }
+}

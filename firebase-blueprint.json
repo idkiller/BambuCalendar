@@ -1,0 +1,119 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "A shared bamboo calendar date-polling room created by a user.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Display title of the gathering or event.",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the polling range in YYYY-MM-DD format.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the polling range in YYYY-MM-DD format.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "creatorId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the room creator.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "creatorName": {
+          "type": "string",
+          "description": "Display nickname of the room creator.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the room was created."
+        }
+      },
+      "required": [
+        "title",
+        "startDate",
+        "endDate",
+        "creatorId",
+        "creatorName",
+        "createdAt"
+      ]
+    },
+    "Vote": {
+      "title": "Vote",
+      "description": "A single user's watering vote on a specific date inside a room.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "description": "Parent room document ID.",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dateStr": {
+          "type": "string",
+          "description": "Watered date in YYYY-MM-DD format.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the participant who watered.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nickname": {
+          "type": "string",
+          "description": "Participant nickname displayed on the calendar tile and top-7 view.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the water vote was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the water vote nickname was last updated."
+        }
+      },
+      "required": [
+        "roomId",
+        "dateStr",
+        "userId",
+        "nickname",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/Room" },
+      "description": "Shared calendar rooms indexed by short unguessable room IDs."
+    },
+    "/rooms/{roomId}/votes/{voteId}": {
+      "schema": { "$ref": "#/entities/Vote" },
+      "description": "Water votes for dates within a room, keyed deterministically as {dateStr}__{userId}."
+    }
+  }
+}
